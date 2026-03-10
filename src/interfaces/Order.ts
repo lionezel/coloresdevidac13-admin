@@ -33,6 +33,7 @@ export interface Order {
     address?: string;
     state: OrderStatus;
     date: any; // Firebase Timestamp or string
+    dateSuccess?: any; // Fecha de cobro final
     products: OrderProduct[];
     total: number;
 }

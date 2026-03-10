@@ -71,11 +71,6 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
       path: `/${restaurantId}/categories`,
     },
     {
-      text: "Orders",
-      icon: <ReceiptIcon />,
-      path: `/${restaurantId}/orders`,
-    },
-    {
       text: "Caja / Facturación",
       icon: <PointOfSaleIcon />,
       path: `/${restaurantId}/billing`,

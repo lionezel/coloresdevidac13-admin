@@ -26,7 +26,7 @@ import {
 import { useCollection } from "../hooks/useCollection";
 import { differenceInMinutes } from "date-fns";
 import { useParams } from "react-router-dom";
-import { Order } from "../interfaces/Order";
+import { Order, OrderStatus } from "../interfaces/Order";
 import CheckoutDialog from "../components/CheckoutDialog";
 
 export default function BillingPage() {
@@ -45,10 +45,11 @@ export default function BillingPage() {
 
     const [orderToCheckout, setOrderToCheckout] = useState<Order | null>(null);
 
-    // Filtrar SOLAMENTE las que están "porCobrar"
+    // Filtrar todas las órdenes activas (que no estén completadas ni canceladas)
     const ordersToBill = useMemo(() => {
+        const activeStates: OrderStatus[] = ["pendiente", "enProceso", "enCamino", "porCobrar"];
         return allOrders
-            .filter((o) => o.state === "porCobrar")
+            .filter((o) => activeStates.includes(o.state))
             .sort((a, b) => {
                 const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
                 const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
@@ -61,10 +62,13 @@ export default function BillingPage() {
     };
 
     const confirmCheckout = async (orderToComplete: Order, finalPaymentMethod: string) => {
+        const now = new Date();
         await createSuccess({
             ...orderToComplete,
             paymentMethod: finalPaymentMethod,
             state: "completada",
+            date: now,        // Sobrescribir la fecha original para que cuente como venta de HOY
+            dateSuccess: now, // Campo adicional por seguridad
         });
         if (orderToComplete.id) {
             await deleteItem(orderToComplete.id);
@@ -195,8 +199,16 @@ function BillingCard({
 
                         <Chip
                             icon={<ShoppingBag fontSize="small" />}
-                            label="Por Cobrar"
-                            color="secondary"
+                            label={
+                                order.state === "pendiente" ? "Nueva Orden" :
+                                order.state === "enProceso" ? "En Cocina" :
+                                order.state === "enCamino" ? "En Camino" : "Listo p. Cobro"
+                            }
+                            color={
+                                order.state === "pendiente" ? "error" :
+                                order.state === "enProceso" ? "warning" :
+                                order.state === "enCamino" ? "info" : "secondary"
+                            }
                             size="small"
                             sx={{ fontWeight: 800, borderRadius: 2 }}
                         />

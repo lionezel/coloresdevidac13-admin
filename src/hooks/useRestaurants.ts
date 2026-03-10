@@ -17,10 +17,12 @@ export function useRestaurants() {
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "restaurants"), (snapshot) => {
+      const allRestaurants = snapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Restaurant)
+      );
+      // Solo mostrar el restaurante con el ID específico
       setRestaurants(
-        snapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Restaurant)
-        )
+        allRestaurants.filter((r) => r.id === "RvBxRrSDgdK6mn6UMJUb")
       );
     });
     return () => unsub();
