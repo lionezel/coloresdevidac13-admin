@@ -1,16 +1,7 @@
-name: CI
-
 trigger:
-- develop
-pr:
 - develop
 
 resources:
-  repositories:
-    - repository: devops
-      type: git
-      name: Opi.Architecture/Opi.ArchitectureBase.Devops
-
 pool:
   vmImage: ubuntu-latest
 
@@ -39,7 +30,7 @@ steps:
     displayName: "Publish registry"
     inputs:
       containerRegistry: '$(registry)'
-      repository: '$(Build.Repository.Name).$(Env)'
+      repository: '$(Build.Repository.Name)'
       command: 'buildAndPush'
       tags: |
         $(Build.BuildId)
