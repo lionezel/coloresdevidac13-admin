@@ -1,0 +1,59 @@
+name: CI
+
+trigger:
+- develop
+pr:
+- develop
+
+resources:
+  repositories:
+    - repository: devops
+      type: git
+      name: Opi.Architecture/Opi.ArchitectureBase.Devops
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+
+  - task: replacetokens@5
+    displayName: 'Configure nginx'
+    inputs:
+      rootDirectory: '$(System.DefaultWorkingDirectory)'
+      targetFiles: '**/nginx.conf'
+
+  - task: replacetokens@5
+    displayName: "Setup environment"
+    inputs:
+      rootDirectory: '$(System.DefaultWorkingDirectory)'
+      targetFiles: '**/environment.ts'
+
+  - task: replacetokens@5
+    displayName: 'Configuration docker file'
+    inputs:
+      rootDirectory: '$(System.DefaultWorkingDirectory)'
+      targetFiles: '**/Dockerfile'
+
+  - task: Docker@2
+    displayName: "Publish registry"
+    inputs:
+      containerRegistry: '$(registry)'
+      repository: '$(Build.Repository.Name).$(Env)'
+      command: 'buildAndPush'
+      tags: |
+        $(Build.BuildId)
+        latest
+      Dockerfile: 'Dockerfile'
+
+  - task: CopyFiles@2
+    displayName: "Copy files deploy yml"
+    inputs:
+      contents: '**/_deployFront/**'
+      targetFolder: $(Build.ArtifactStagingDirectory)
+  - task: PublishPipelineArtifact@1
+  
+    displayName: 'Publish artifact'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+      artifactName: '_deploy'
