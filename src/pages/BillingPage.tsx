@@ -45,11 +45,9 @@ export default function BillingPage() {
 
     const [orderToCheckout, setOrderToCheckout] = useState<Order | null>(null);
 
-    // Filtrar todas las órdenes activas (que no estén completadas ni canceladas)
+    // Listar todas las órdenes de la colección "orders" sin filtrar por estado
     const ordersToBill = useMemo(() => {
-        const activeStates: OrderStatus[] = ["pendiente", "enProceso", "enCamino", "porCobrar"];
-        return allOrders
-            .filter((o) => activeStates.includes(o.state))
+        return [...allOrders]
             .sort((a, b) => {
                 const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
                 const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
@@ -199,16 +197,8 @@ function BillingCard({
 
                         <Chip
                             icon={<ShoppingBag fontSize="small" />}
-                            label={
-                                order.state === "pendiente" ? "Nueva Orden" :
-                                order.state === "enProceso" ? "En Cocina" :
-                                order.state === "enCamino" ? "En Camino" : "Listo p. Cobro"
-                            }
-                            color={
-                                order.state === "pendiente" ? "error" :
-                                order.state === "enProceso" ? "warning" :
-                                order.state === "enCamino" ? "info" : "secondary"
-                            }
+                            label="Listo p. Cobro"
+                            color="secondary"
                             size="small"
                             sx={{ fontWeight: 800, borderRadius: 2 }}
                         />
