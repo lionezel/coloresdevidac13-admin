@@ -80,6 +80,11 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
       icon: <AddCircleIcon />,
       path: `/${restaurantId}/additions`,
     },
+    {
+      text: "Clientes de Crédito",
+      icon: <ReceiptIcon />,
+      path: `/${restaurantId}/credit-customers`,
+    },
   ];
 
   const drawerContent = (

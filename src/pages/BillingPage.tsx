@@ -14,6 +14,9 @@ import {
     Fade,
     IconButton,
     Tooltip as MuiTooltip,
+    Tabs,
+    Tab,
+    Paper,
 } from "@mui/material";
 import {
     AccessTime,
@@ -22,6 +25,8 @@ import {
     DeleteOutline,
     PointOfSale,
     InfoOutlined,
+    TableBar,
+    Person,
 } from "@mui/icons-material";
 import { useCollection } from "../hooks/useCollection";
 import { differenceInMinutes } from "date-fns";
@@ -31,6 +36,7 @@ import CheckoutDialog from "../components/CheckoutDialog";
 
 export default function BillingPage() {
     const { restaurantId } = useParams<{ restaurantId: string }>();
+    const [tabValue, setTabValue] = useState(0);
 
     // Solo traemos órdenes para la caja (orders) y luego guardaremos en success
     const {
@@ -41,6 +47,11 @@ export default function BillingPage() {
     const { createItem: createSuccess } = useCollection<Order>(
         restaurantId!,
         "orderssuccess"
+    );
+
+    const { updateItem: updateCustomer } = useCollection<any>(
+        restaurantId!,
+        "credit_customers"
     );
 
     const [orderToCheckout, setOrderToCheckout] = useState<Order | null>(null);
@@ -55,19 +66,62 @@ export default function BillingPage() {
             });
     }, [allOrders]);
 
+    // Filtrado por nombres para las pestañas (Sugerencia del usuario)
+    const tableOrders = useMemo(() => ordersToBill.filter(o =>
+        o.name.toLowerCase().trim().startsWith("mesa")
+    ), [ordersToBill]);
+
+    const creditOrders = useMemo(() => ordersToBill.filter(o =>
+        !o.name.toLowerCase().trim().startsWith("mesa")
+    ), [ordersToBill]);
+
+    const filteredOrders = useMemo(() => {
+        return tabValue === 0 ? tableOrders : creditOrders;
+    }, [tabValue, tableOrders, creditOrders]);
+
     const handleOpenCheckout = (order: Order) => {
         setOrderToCheckout(order);
     };
 
-    const confirmCheckout = async (orderToComplete: Order, finalPaymentMethod: string) => {
+    const handleTabChange = (_: any, newValue: number) => {
+        setTabValue(newValue);
+    };
+
+    const confirmCheckout = async (
+        orderToComplete: Order,
+        finalPaymentMethod: string,
+        customer?: { id: string; name: string }
+    ) => {
         const now = new Date();
-        await createSuccess({
+        const totalAmount = orderToComplete.products.reduce(
+            (acc, p) => acc + Number(p.total ?? Number(p.price) * Number(p.quantity)),
+            0
+        );
+
+        const successOrder: any = {
             ...orderToComplete,
             paymentMethod: finalPaymentMethod,
             state: "completada",
-            date: now,        // Sobrescribir la fecha original para que cuente como venta de HOY
-            dateSuccess: now, // Campo adicional por seguridad
-        });
+            date: now,
+            dateSuccess: now,
+        };
+
+        if (customer?.id) successOrder.customerId = customer.id;
+        if (customer?.name) successOrder.customerName = customer.name;
+
+        await createSuccess(successOrder);
+
+        // Si es FIADO, actualizamos la deuda del cliente
+        if (finalPaymentMethod === "fiado" && customer?.id) {
+            // Nota: Aquí lo ideal sería sumar a la deuda actual, 
+            // pero useCollection no nos da el objeto individual fácilmente sin buscarlo.
+            // Por simplicidad en este MVP, asumiremos que se maneja por agregación de órdenes en la vista.
+            // Sin embargo, para cumplir con "ver lo que acumula", vamos a intentar actualizar el totalDebt.
+
+            // Buscamos el cliente para obtener su deuda actual (esto es un poco ineficiente sin un hook fetchDoc)
+            // Por ahora, solo guardaremos la orden. En CreditCustomersPage calcularemos el total sumando órdenes vinculadas.
+        }
+
         if (orderToComplete.id) {
             await deleteItem(orderToComplete.id);
         }
@@ -91,10 +145,33 @@ export default function BillingPage() {
                         Órdenes listas para ser cobradas y cerradas.
                     </Typography>
                 </Box>
+
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: 0.5,
+                        borderRadius: 3,
+                        bgcolor: "#f1f5f9",
+                        border: "1px solid #e2e8f0"
+                    }}
+                >
+                    <Tabs
+                        value={tabValue}
+                        onChange={handleTabChange}
+                        sx={{
+                            minHeight: 44,
+                            "& .MuiTabs-indicator": { height: "100%", borderRadius: 2, zIndex: 0, bgcolor: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" },
+                            "& .MuiTab-root": { minHeight: 44, zIndex: 1, textTransform: "none", fontWeight: 700, px: 3, fontSize: "0.95rem", borderRadius: 2 }
+                        }}
+                    >
+                        <Tab label={`Mesas (${tableOrders.length})`} icon={<TableBar fontSize="small" />} iconPosition="start" />
+                        <Tab label={`Fiadores / Otros (${creditOrders.length})`} icon={<Person fontSize="small" />} iconPosition="start" />
+                    </Tabs>
+                </Paper>
             </Stack>
 
             <Grid container spacing={3}>
-                {ordersToBill.length === 0 ? (
+                {filteredOrders.length === 0 ? (
                     <Grid size={12}>
                         <Fade in timeout={800}>
                             <Box
@@ -108,16 +185,16 @@ export default function BillingPage() {
                             >
                                 <PointOfSale sx={{ fontSize: 70, color: "#cbd5e1", mb: 3 }} />
                                 <Typography variant="h5" color="text.secondary" fontWeight={800} mb={1}>
-                                    No hay órdenes para cobrar
+                                    No hay órdenes en esta categoría
                                 </Typography>
                                 <Typography variant="body1" color="text.disabled">
-                                    Cuando la cocina marque una orden como lista, aparecerá aquí.
+                                    Las órdenes aparecerán aquí cuando estén listas para cobrar.
                                 </Typography>
                             </Box>
                         </Fade>
                     </Grid>
                 ) : (
-                    ordersToBill.map((order) => (
+                    filteredOrders.map((order) => (
                         <Grid key={order.id} size={{ xs: 12, md: 6, lg: 4 }}>
                             <BillingCard
                                 order={order}

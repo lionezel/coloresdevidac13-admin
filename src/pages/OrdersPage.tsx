@@ -28,6 +28,7 @@ import {
   DeleteOutline,
   KeyboardArrowRight,
   InfoOutlined,
+  Person,
 } from "@mui/icons-material";
 import { useCollection } from "../hooks/useCollection";
 import { differenceInMinutes } from "date-fns";
@@ -302,6 +303,29 @@ function OrderCard({ order, onUpdateStatus, onComplete, onDelete }: {
                 "& .MuiChip-label": { fontSize: "0.75rem" }
               }}
             />
+          </Stack>
+
+          {/* TIPO DE ORDEN O CLIENTE */}
+          <Stack direction="row" spacing={1} mb={2}>
+            {order.name.toLowerCase().trim().startsWith("mesa") ? (
+              <Chip
+                icon={<Restaurant fontSize="small" />}
+                label="Mesa"
+                size="small"
+                color="success"
+                variant="outlined"
+                sx={{ fontWeight: 700, borderRadius: 2 }}
+              />
+            ) : (
+              <Chip
+                icon={<Person fontSize="small" />}
+                label={order.customerName ? `Fiado: ${order.customerName}` : "Fiador / Otro"}
+                size="small"
+                color="info"
+                variant="outlined"
+                sx={{ fontWeight: 700, borderRadius: 2 }}
+              />
+            )}
           </Stack>
 
           {/* DIRECCIÓN */}

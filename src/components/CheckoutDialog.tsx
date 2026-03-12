@@ -18,12 +18,15 @@ import CloseIcon from "@mui/icons-material/Close";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import { Order } from "../interfaces/Order";
+import { useCollection } from "../hooks/useCollection";
+import { CreditCustomer } from "../interfaces/CreditCustomer";
+import { useParams } from "react-router-dom";
 
 interface CheckoutDialogProps {
     open: boolean;
     order: Order | null;
     onClose: () => void;
-    onComplete: (order: Order, finalPaymentMethod: string) => Promise<void>;
+    onComplete: (order: Order, finalPaymentMethod: string, customer?: { id: string, name: string }) => Promise<void>;
 }
 
 export default function CheckoutDialog({
@@ -32,8 +35,19 @@ export default function CheckoutDialog({
     onClose,
     onComplete,
 }: CheckoutDialogProps) {
+    const { restaurantId } = useParams<{ restaurantId: string }>();
     const [paymentMethod, setPaymentMethod] = useState<string>("efectivo");
     const [cashReceived, setCashReceived] = useState<number | "">("");
+    const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+
+    const { data: creditCustomers = [] } = useCollection<CreditCustomer>(
+        restaurantId!,
+        "credit_customers"
+    );
+
+    const selectedCustomer = useMemo(() =>
+        creditCustomers.find(c => c.id === selectedCustomerId),
+        [creditCustomers, selectedCustomerId]);
 
     // Calculate total whenever an order is active
     const totalGeneral = useMemo(() => {
@@ -65,12 +79,15 @@ export default function CheckoutDialog({
 
     const handleFinish = async () => {
         if (isShortOnCash) return;
-        if (order) {
-            // Guardar el método de pago por el que se terminó cobrando
-            await onComplete(order, paymentMethod);
+        if (paymentMethod === "fiado" && !selectedCustomerId) return;
 
-            // En el futuro, aquí se puede llamar a un API de impresión 
-            // `window.print()` o lógica de `react-to-print`
+        if (order) {
+            const customerData = selectedCustomer ? {
+                id: selectedCustomer.id!,
+                name: selectedCustomer.name
+            } : undefined;
+
+            await onComplete(order, paymentMethod, customerData);
             onClose();
         }
     };
@@ -138,8 +155,30 @@ export default function CheckoutDialog({
                         <MenuItem value="efectivo">💵 Efectivo</MenuItem>
                         <MenuItem value="tarjeta">💳 Tarjeta de Crédito/Débito</MenuItem>
                         <MenuItem value="transferencia">🏦 Transferencia / Nequi</MenuItem>
+                        <MenuItem value="fiado">📝 Fiado (Pendiente Cobro)</MenuItem>
                         <MenuItem value="otro">🏷️ Otro</MenuItem>
                     </TextField>
+
+                    {/* Selector de Cliente para Fiado */}
+                    {paymentMethod === "fiado" && (
+                        <TextField
+                            select
+                            label="Seleccionar Cliente de Crédito"
+                            value={selectedCustomerId}
+                            onChange={(e) => setSelectedCustomerId(e.target.value)}
+                            fullWidth
+                            variant="outlined"
+                            required
+                            helperText={!selectedCustomerId ? "Debes seleccionar un cliente para fiar" : ""}
+                            error={!selectedCustomerId}
+                        >
+                            {creditCustomers.map((customer) => (
+                                <MenuItem key={customer.id} value={customer.id}>
+                                    {customer.name} {customer.phone ? `(${customer.phone})` : ""}
+                                </MenuItem>
+                            ))}
+                        </TextField>
+                    )}
 
                     {/* Calculadora de Efectivo */}
                     {paymentMethod === "efectivo" && (

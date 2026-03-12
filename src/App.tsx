@@ -16,6 +16,7 @@ import { AuthProvider } from "./auth/AuthProvider";
 import { LoginPage } from "./pages/LoginPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdditionsPage from "./pages/AdditionsPage";
+import CreditCustomersPage from "./pages/CreditCustomersPage";
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="discounts" element={<DiscountsPage />} />
             <Route path="delivery" element={<DeliveryPage />} />
             <Route path="additions" element={<AdditionsPage />} />
+            <Route path="credit-customers" element={<CreditCustomersPage />} />
           </Route>
         </Routes>
       </AuthProvider>
