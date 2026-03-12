@@ -10,4 +10,4 @@ resources:
       name: Architecture/Devops
 
 extends:
-  template: front/azure-pipelines-cd.yml@devops
+  template: front/azure-pipeline-cd.yml@devops
