@@ -49,6 +49,11 @@ export default function BillingPage() {
         "orderssuccess"
     );
 
+    const { createItem: createCredit } = useCollection<Order>(
+        restaurantId!,
+        "orders_credit"
+    );
+
     const { updateItem: updateCustomer } = useCollection<any>(
         restaurantId!,
         "credit_customers"
@@ -109,17 +114,13 @@ export default function BillingPage() {
         if (customer?.id) successOrder.customerId = customer.id;
         if (customer?.name) successOrder.customerName = customer.name;
 
-        await createSuccess(successOrder);
+        // Eliminar el id anterior para no sobreescribir ni guardar basura en db
+        delete successOrder.id;
 
-        // Si es FIADO, actualizamos la deuda del cliente
         if (finalPaymentMethod === "fiado" && customer?.id) {
-            // Nota: Aquí lo ideal sería sumar a la deuda actual, 
-            // pero useCollection no nos da el objeto individual fácilmente sin buscarlo.
-            // Por simplicidad en este MVP, asumiremos que se maneja por agregación de órdenes en la vista.
-            // Sin embargo, para cumplir con "ver lo que acumula", vamos a intentar actualizar el totalDebt.
-
-            // Buscamos el cliente para obtener su deuda actual (esto es un poco ineficiente sin un hook fetchDoc)
-            // Por ahora, solo guardaremos la orden. En CreditCustomersPage calcularemos el total sumando órdenes vinculadas.
+            await createCredit(successOrder);
+        } else {
+            await createSuccess(successOrder);
         }
 
         if (orderToComplete.id) {

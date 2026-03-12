@@ -40,7 +40,13 @@ export default function CreditCustomersPage() {
         useCollection<CreditCustomer>(restaurantId!, "credit_customers");
 
     // Órdenes finalizadas para calcular deuda y ver historial
-    const { data: allSuccessOrders = [], deleteItem: deleteOrder } = useCollection<Order>(
+    const { data: allSuccessOrders = [], deleteItem: deleteOrder, updateItem: updateOrder } = useCollection<Order>(
+        restaurantId!,
+        "orders_credit"
+    );
+
+    // Colección del dashboard (orderssuccess)
+    const { createItem: createSuccessOrder } = useCollection<Order>(
         restaurantId!,
         "orderssuccess"
     );
@@ -329,10 +335,28 @@ export default function CreditCustomersPage() {
                         startIcon={<CheckCircle />}
                         sx={{ fontWeight: 800, borderRadius: 4 }}
                         disabled={calculateDebt(selectedCustomerForHistory?.id || "") === 0}
-                        onClick={() => {
-                            // Logic to clear debt could go here (e.g., updating paymentMethod of orders or deleting them)
-                            // For now, let's keep it simple as requested: "ver lo que acumula"
-                            alert("Funcionalidad para liquidar deuda: Puedes marcar las órdenes como pagadas en la base de datos.");
+                        onClick={async () => {
+                            if (!selectedCustomerForHistory) return;
+
+                            const unpaidOrders = customerOrders.filter(o => o.paymentMethod === 'fiado');
+
+                            for (const order of unpaidOrders) {
+                                if (order.id) {
+                                    // Actualizar estado en el historial de créditos para que ya no sume a la deuda
+                                    await updateOrder(order.id, { paymentMethod: 'pagado' });
+
+                                    // Insertar en orderssuccess para que el dashboard lo cuente
+                                    const { id, ...orderData } = order as any;
+                                    await createSuccessOrder({
+                                        ...orderData,
+                                        paymentMethod: 'efectivo', // Lo contamos como efectivo en el dashboard
+                                        dateSuccess: new Date(), // Fecha de liquidación
+                                    });
+                                }
+                            }
+
+                            alert(`Se han liquidado ${unpaidOrders.length} órdenes y se han registrado en el Dashboard.`);
+                            setSelectedCustomerForHistory(null);
                         }}
                     >
                         Liquidar Deuda
