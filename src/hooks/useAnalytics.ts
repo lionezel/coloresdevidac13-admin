@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Order } from "../interfaces/Order";
 
-export type Period = "day" | "week" | "month" | "year";
+export type Period = "day" | "week" | "month" | "year" | "custom";
 
 /* =========================
    DATE HELPERS
@@ -11,18 +11,18 @@ export type Period = "day" | "week" | "month" | "year";
 ========================= */
 const toDate = (order: any): Date => {
   if (!order) return new Date();
-  
+
   // Lista extensiva de campos posibles. Priorizamos dateSuccess si existe, luego date.
-  const dateValue = 
+  const dateValue =
     order.dateSuccess ||
-    order.date || 
-    order.createdAt || 
-    order.timestamp || 
-    order.fecha || 
+    order.date ||
+    order.createdAt ||
+    order.timestamp ||
+    order.fecha ||
     order.time;
-  
+
   if (!dateValue) return new Date();
-  
+
   // Intento de conversión a Date
   let dateObj: Date;
   if (typeof dateValue.toDate === "function") {
@@ -37,42 +37,47 @@ const toDate = (order: any): Date => {
   } else {
     dateObj = new Date(dateValue);
   }
-  
+
   return isNaN(dateObj.getTime()) ? new Date() : dateObj;
 };
 
-const getStartOfPeriod = (period: Period): Date => {
-  const now = new Date();
-  const start = new Date(now);
+const getStartOfPeriod = (period: Period, customDate?: Date): Date => {
+  const start = period === "custom" && customDate ? new Date(customDate.getTime()) : new Date();
+  start.setHours(0, 0, 0, 0);
 
   switch (period) {
     case "day":
-      start.setHours(0, 0, 0, 0);
       break;
     case "week":
-      start.setDate(now.getDate() - 6);
-      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - 6);
       break;
     case "month":
-      start.setDate(now.getDate() - 29);
-      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - 29);
       break;
     case "year":
-      start.setDate(now.getDate() - 364);
-      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() - 364);
+      break;
+    case "custom":
       break;
   }
   return start;
 };
 
-const getPreviousPeriodRange = (period: Period): { start: Date; end: Date } => {
-  const startCurrent = getStartOfPeriod(period);
+const getEndOfPeriod = (period: Period, customDate?: Date): Date => {
+  const end = period === "custom" && customDate ? new Date(customDate.getTime()) : new Date();
+  end.setHours(23, 59, 59, 999);
+  return end;
+};
+
+const getPreviousPeriodRange = (period: Period, customDate?: Date): { start: Date; end: Date } => {
+  const startCurrent = getStartOfPeriod(period, customDate);
   const end = new Date(startCurrent);
   end.setMilliseconds(-1);
 
   const start = new Date(startCurrent);
   switch (period) {
     case "day":
+    case "custom":
       start.setDate(start.getDate() - 1);
       break;
     case "week":
@@ -91,15 +96,16 @@ const getPreviousPeriodRange = (period: Period): { start: Date; end: Date } => {
 /* =========================
    ANALYTICS HOOK
 ========================= */
-export const useAnalytics = (orders: Order[], period: Period) => {
+export const useAnalytics = (orders: Order[], period: Period, customDate?: Date) => {
   return useMemo(() => {
-    const startOfPeriod = getStartOfPeriod(period);
-    const { start: startPrev, end: endPrev } = getPreviousPeriodRange(period);
+    const startOfPeriod = getStartOfPeriod(period, customDate);
+    const endOfPeriod = getEndOfPeriod(period, customDate);
+    const { start: startPrev, end: endPrev } = getPreviousPeriodRange(period, customDate);
 
     /* 🔹 Filtrar por períodos */
     const filteredOrders = orders.filter((order) => {
       const date = toDate(order);
-      return date >= startOfPeriod;
+      return date >= startOfPeriod && date <= endOfPeriod;
     });
 
     const previousOrders = orders.filter((order) => {
@@ -203,5 +209,5 @@ export const useAnalytics = (orders: Order[], period: Period) => {
       peakHours,
       growth,
     };
-  }, [orders, period]);
+  }, [orders, period, customDate]);
 };

@@ -12,6 +12,7 @@ import {
   Stack,
   Chip,
   Divider,
+  TextField,
 } from "@mui/material";
 import {
   AttachMoney,
@@ -112,7 +113,8 @@ export default function Dashboard() {
   );
 
   const [period, setPeriod] = useState<Period>("month");
-  const analytics = useAnalytics(orders, period);
+  const [customDate, setCustomDate] = useState<Date | undefined>(new Date());
+  const analytics = useAnalytics(orders, period, customDate);
 
   if (!restaurantId) {
     return (
@@ -143,20 +145,52 @@ export default function Dashboard() {
           </Typography>
         </Box>
 
-        <ToggleButtonGroup
-          value={period}
-          exclusive
-          onChange={(_, value) => value && setPeriod(value)}
-          sx={{
-            bgcolor: "#fff",
-            borderRadius: 3,
-          }}
-        >
-          <ToggleButton value="day">Hoy</ToggleButton>
-          <ToggleButton value="week">Semana</ToggleButton>
-          <ToggleButton value="month">Mes</ToggleButton>
-          <ToggleButton value="year">Año</ToggleButton>
-        </ToggleButtonGroup>
+        <Stack direction="row" spacing={2} alignItems="center">
+          {period === "custom" && (
+            <TextField
+              type="date"
+              size="small"
+              value={
+                customDate
+                  ? `${customDate.getFullYear()}-${String(customDate.getMonth() + 1).padStart(2, "0")}-${String(customDate.getDate()).padStart(2, "0")}`
+                  : ""
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val) {
+                  // val comes as YYYY-MM-DD
+                  const [y, m, d] = val.split('-');
+                  setCustomDate(new Date(Number(y), Number(m) - 1, Number(d)));
+                  // Use a timeout to ensure state batches cleanly or force next tick
+                  setTimeout(() => setPeriod("custom"), 0);
+                } else {
+                  setCustomDate(undefined);
+                }
+              }}
+              sx={{ bgcolor: "#fff", borderRadius: 2 }}
+            />
+          )}
+
+          <ToggleButtonGroup
+            value={period}
+            exclusive
+            onChange={(_, value) => {
+              if (value) {
+                setPeriod(value);
+              }
+            }}
+            sx={{
+              bgcolor: "#fff",
+              borderRadius: 3,
+            }}
+          >
+            <ToggleButton value="day">Hoy</ToggleButton>
+            <ToggleButton value="week">Semana</ToggleButton>
+            <ToggleButton value="month">Mes</ToggleButton>
+            <ToggleButton value="year">Año</ToggleButton>
+            <ToggleButton value="custom">Fecha</ToggleButton>
+          </ToggleButtonGroup>
+        </Stack>
       </Stack>
 
       {/* KPIs */}
