@@ -101,7 +101,7 @@ export default function BillingPage() {
         const totalAmount = orderToComplete.products.reduce(
             (acc, p) => acc + Number(p.total ?? Number(p.price) * Number(p.quantity)),
             0
-        );
+        ) + (Number(orderToComplete.shippingCost) || 0);
 
         const successOrder: any = {
             ...orderToComplete,
@@ -230,11 +230,12 @@ function BillingCard({
     const minutes = differenceInMinutes(new Date(), date);
 
     const totalGeneral = useMemo(() => {
-        return order.products.reduce(
+        const subtotal = order.products.reduce(
             (acc, p) => acc + Number(p.total ?? Number(p.price) * Number(p.quantity)),
             0
         );
-    }, [order.products]);
+        return subtotal + (Number(order.shippingCost) || 0);
+    }, [order.products, order.shippingCost]);
 
     return (
         <Fade in timeout={500}>
@@ -341,6 +342,14 @@ function BillingCard({
                     </Stack>
 
                     <Box sx={{ mt: "auto", pt: 2.5, borderTop: "2px solid #f1f5f9" }}>
+                        {order.shippingCost ? (
+                            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                                <Typography variant="caption" color="text.secondary" fontWeight={700}>Costo de Envío</Typography>
+                                <Typography variant="body2" fontWeight={800} color="text.secondary">
+                                    ${Number(order.shippingCost).toLocaleString()}
+                                </Typography>
+                            </Stack>
+                        ) : null}
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                             <Chip label={order.paymentMethod.toUpperCase()} size="small" variant="outlined" sx={{ fontWeight: 800, fontSize: "0.7rem" }} />
                             <Box sx={{ textAlign: "right" }}>

@@ -38,4 +38,5 @@ export interface Order {
     total: number;
     customerId?: string;
     customerName?: string;
+    shippingCost?: number;
 }
