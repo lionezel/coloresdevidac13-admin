@@ -49,6 +49,11 @@ export default function BillingPage() {
         "orderssuccess"
     );
 
+    const { createItem: createCredit } = useCollection<Order>(
+        restaurantId!,
+        "orders_credit"
+    );
+
     const { updateItem: updateCustomer } = useCollection<any>(
         restaurantId!,
         "credit_customers"
@@ -96,7 +101,7 @@ export default function BillingPage() {
         const totalAmount = orderToComplete.products.reduce(
             (acc, p) => acc + Number(p.total ?? Number(p.price) * Number(p.quantity)),
             0
-        );
+        ) + (Number(orderToComplete.shippingCost) || 0);
 
         const successOrder: any = {
             ...orderToComplete,
@@ -109,17 +114,13 @@ export default function BillingPage() {
         if (customer?.id) successOrder.customerId = customer.id;
         if (customer?.name) successOrder.customerName = customer.name;
 
-        await createSuccess(successOrder);
+        // Eliminar el id anterior para no sobreescribir ni guardar basura en db
+        delete successOrder.id;
 
-        // Si es FIADO, actualizamos la deuda del cliente
         if (finalPaymentMethod === "fiado" && customer?.id) {
-            // Nota: Aquí lo ideal sería sumar a la deuda actual, 
-            // pero useCollection no nos da el objeto individual fácilmente sin buscarlo.
-            // Por simplicidad en este MVP, asumiremos que se maneja por agregación de órdenes en la vista.
-            // Sin embargo, para cumplir con "ver lo que acumula", vamos a intentar actualizar el totalDebt.
-
-            // Buscamos el cliente para obtener su deuda actual (esto es un poco ineficiente sin un hook fetchDoc)
-            // Por ahora, solo guardaremos la orden. En CreditCustomersPage calcularemos el total sumando órdenes vinculadas.
+            await createCredit(successOrder);
+        } else {
+            await createSuccess(successOrder);
         }
 
         if (orderToComplete.id) {
@@ -229,11 +230,12 @@ function BillingCard({
     const minutes = differenceInMinutes(new Date(), date);
 
     const totalGeneral = useMemo(() => {
-        return order.products.reduce(
+        const subtotal = order.products.reduce(
             (acc, p) => acc + Number(p.total ?? Number(p.price) * Number(p.quantity)),
             0
         );
-    }, [order.products]);
+        return subtotal + (Number(order.shippingCost) || 0);
+    }, [order.products, order.shippingCost]);
 
     return (
         <Fade in timeout={500}>
@@ -340,6 +342,14 @@ function BillingCard({
                     </Stack>
 
                     <Box sx={{ mt: "auto", pt: 2.5, borderTop: "2px solid #f1f5f9" }}>
+                        {order.shippingCost ? (
+                            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                                <Typography variant="caption" color="text.secondary" fontWeight={700}>Costo de Envío</Typography>
+                                <Typography variant="body2" fontWeight={800} color="text.secondary">
+                                    ${Number(order.shippingCost).toLocaleString()}
+                                </Typography>
+                            </Stack>
+                        ) : null}
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                             <Chip label={order.paymentMethod.toUpperCase()} size="small" variant="outlined" sx={{ fontWeight: 800, fontSize: "0.7rem" }} />
                             <Box sx={{ textAlign: "right" }}>

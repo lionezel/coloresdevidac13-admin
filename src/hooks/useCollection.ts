@@ -20,8 +20,8 @@ export function useCollection<T>(restaurantId: string, colName: string) {
     const unsubscribe = onSnapshot(colRef, (snapshot) => {
       setData(
         snapshot.docs.map((d) => ({
-          id: d.id,
           ...d.data(),
+          id: d.id,
         })) as T[]
       );
     });
