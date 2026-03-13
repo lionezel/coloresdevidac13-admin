@@ -25,6 +25,7 @@ import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import { Link, useLocation, useParams } from "react-router-dom";
 import { GlobalColor } from "../global/GlobalColor";
 import { useRestaurants } from "../hooks/useRestaurants";
+import { useAuth } from "../hooks/useAuth";
 
 const drawerWidth = 240;
 
@@ -40,6 +41,11 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const { userDoc } = useAuth();
+
+  const userRole = userDoc?.role;
+  const isCajero = userRole === "cajero";
+  const hasAdminRights = userDoc?.isAdmin === true || userRole === "admin";
 
   // 🔥 Restaurante actual según la URL
   const currentRestaurant = restaurants?.find(
@@ -87,12 +93,24 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
     },
   ];
 
+  const filteredMenuItems = menuItems.filter((item) => {
+    if (item.isLogo) return true;
+    if (hasAdminRights) return true;
+    if (isCajero) {
+      return (
+        item.path === `/${restaurantId}/billing` ||
+        item.path === `/${restaurantId}/credit-customers`
+      );
+    }
+    return false;
+  });
+
   const drawerContent = (
     <>
       <Toolbar />
 
       <List>
-        {menuItems.map((item) => (
+        {filteredMenuItems.map((item) => (
           <ListItemButton
             key={item.text}
             component={Link}

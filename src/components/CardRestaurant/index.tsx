@@ -14,6 +14,7 @@ import { useState } from "react";
 
 import { Restaurant } from "../../interfaces/Restaurant";
 import { GlobalColor } from "../../global/GlobalColor";
+import { useAuth } from "../../hooks/useAuth";
 import RestaurantDialog, {
   RestaurantForm,
 } from "../RestaurantDialog";
@@ -41,6 +42,18 @@ export const RestaurantCard = ({
   updateRestaurant,
 }: Props) => {
   const navigate = useNavigate();
+  const { userDoc } = useAuth();
+  const userRole = userDoc?.role;
+  const isCajero = userRole === "cajero";
+  const hasAdminRights = userDoc?.isAdmin === true || userRole === "admin";
+
+  const handleCardClick = (restId: string) => {
+    if (isCajero) {
+      navigate(`/${restId}/billing`);
+    } else {
+      navigate(`/${restId}/dashboard`);
+    }
+  };
 
   const [open, setOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -112,13 +125,15 @@ export const RestaurantCard = ({
         Restaurantes 🍽️
       </Typography>
 
-      <Button
-        variant="contained"
-        sx={{ mb: 4, backgroundColor: GlobalColor }}
-        onClick={handleOpen}
-      >
-        Crear nuevo restaurante
-      </Button>
+      {hasAdminRights && (
+        <Button
+          variant="contained"
+          sx={{ mb: 4, backgroundColor: GlobalColor }}
+          onClick={handleOpen}
+        >
+          Crear nuevo restaurante
+        </Button>
+      )}
 
       <RestaurantDialog
         open={open}
@@ -141,16 +156,18 @@ export const RestaurantCard = ({
                 cursor: "pointer",
               }}
             >
-              <IconButton
-                sx={{ position: "absolute", top: 8, right: 8 }}
-                onClick={(e) => handleMenuOpen(e, rest)}
-              >
-                <MoreVertIcon />
-              </IconButton>
+              {hasAdminRights && (
+                <IconButton
+                  sx={{ position: "absolute", top: 8, right: 8 }}
+                  onClick={(e) => handleMenuOpen(e, rest)}
+                >
+                  <MoreVertIcon />
+                </IconButton>
+              )}
 
               <CardContent
                 onClick={() =>
-                  navigate(`/${rest.id}/dashboard`)
+                  handleCardClick(rest.id)
                 }
               >
                 {rest.image ? (
