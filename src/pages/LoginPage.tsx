@@ -11,14 +11,24 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 
 import { useNavigate } from "react-router-dom";
 import { auth } from "../firebase/config";
+import { useAuth } from "../hooks/useAuth";
+import { useEffect } from "react";
 
 export const LoginPage = () => {
     const navigate = useNavigate();
+
+    const { user } = useAuth();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+
+    useEffect(() => {
+        if (user) {
+            navigate("/");
+        }
+    }, [user, navigate]);
 
     const handleLogin = async () => {
         setError("");
@@ -31,10 +41,9 @@ export const LoginPage = () => {
         try {
             setLoading(true);
             await signInWithEmailAndPassword(auth, email, password);
-            navigate("/");
+            // La redirección ahora se maneja en el useEffect cuando 'user' se actualiza
         } catch (err) {
             setError("Usuario o contraseña incorrectos");
-        } finally {
             setLoading(false);
         }
     };
