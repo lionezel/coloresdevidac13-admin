@@ -20,7 +20,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built assets from the build stage to Nginx
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Expose port 80
-EXPOSE #{port}#
+# Expose port 3000
+EXPOSE 3000
 
 CMD ["nginx", "-g", "daemon off;"]

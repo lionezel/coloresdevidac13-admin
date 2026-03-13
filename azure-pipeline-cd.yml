@@ -7,7 +7,14 @@ resources:
   repositories:
     - repository: devops
       type: git
-      name: Architecture/Devops
+      name: Devops
 
 extends:
-  template: front/azure-pipeline-cd.yml@devops
+  template: templates/build-microservice.yml@devops
+  parameters:
+    appName: "restabarlabello-admin"
+    imageRepository: "restabarlabello-admin"
+    secretFileName: "secret.yaml"
+    deploymentType: "frontend"
+    backendAppName: "restabarlabello-backend"
+    subdomain: "admin-restabarlabello"
