@@ -145,7 +145,12 @@ export default function Dashboard() {
           </Typography>
         </Box>
 
-        <Stack direction="row" spacing={2} alignItems="center">
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={2}
+          alignItems={{ xs: "stretch", sm: "center" }}
+          sx={{ flexWrap: "wrap", gap: 1 }}
+        >
           {period === "custom" && (
             <TextField
               type="date"
@@ -167,7 +172,7 @@ export default function Dashboard() {
                   setCustomDate(undefined);
                 }
               }}
-              sx={{ bgcolor: "#fff", borderRadius: 2 }}
+              sx={{ bgcolor: "#fff", borderRadius: 2, flexGrow: { xs: 1, sm: 0 } }}
             />
           )}
 
@@ -182,6 +187,12 @@ export default function Dashboard() {
             sx={{
               bgcolor: "#fff",
               borderRadius: 3,
+              display: "flex",
+              flexWrap: "wrap",
+              "& .MuiToggleButton-root": {
+                flex: "1 1 auto",
+                minWidth: "80px",
+              },
             }}
           >
             <ToggleButton value="day">Hoy</ToggleButton>
