@@ -11,16 +11,11 @@ import {
   Box,
   Tooltip,
 } from "@mui/material";
-import ViewCarouselIcon from "@mui/icons-material/ViewCarousel";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
 import CategoryIcon from "@mui/icons-material/Category";
 import InventoryIcon from "@mui/icons-material/Inventory";
-import ReceiptIcon from "@mui/icons-material/Receipt";
 import RestaurantIcon from "@mui/icons-material/Restaurant";
 import DashboardIcon from "@mui/icons-material/Dashboard";
-import GroupIcon from "@mui/icons-material/Group";
-import DiscountIcon from '@mui/icons-material/Discount';
-import DeliveryDiningIcon from '@mui/icons-material/DeliveryDining';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import { Link, useLocation, useParams } from "react-router-dom";
 import { GlobalColor } from "../global/GlobalColor";
@@ -86,11 +81,11 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
       icon: <AddCircleIcon />,
       path: `/${restaurantId}/additions`,
     },
-    {
-      text: "Clientes de Crédito",
-      icon: <ReceiptIcon />,
-      path: `/${restaurantId}/credit-customers`,
-    },
+    // {
+    //   text: "Clientes de Crédito",
+    //   icon: <ReceiptIcon />,
+    //   path: `/${restaurantId}/credit-customers`,
+    // },
   ];
 
   const filteredMenuItems = menuItems.filter((item) => {

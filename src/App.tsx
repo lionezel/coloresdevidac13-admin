@@ -16,7 +16,7 @@ import { AuthProvider } from "./auth/AuthProvider";
 import { LoginPage } from "./pages/LoginPage";
 import SettingsPage from "./pages/SettingsPage";
 import AdditionsPage from "./pages/AdditionsPage";
-import CreditCustomersPage from "./pages/CreditCustomersPage";
+// import CreditCustomersPage from "./pages/CreditCustomersPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 export default function App() {
@@ -36,7 +36,7 @@ export default function App() {
               {/* Rutas compartidas entre Admin y Cajero */}
               <Route element={<ProtectedRoute allowedRoles={["admin", "cajero"]} />}>
                 <Route path="billing" element={<BillingPage />} />
-                <Route path="credit-customers" element={<CreditCustomersPage />} />
+                {/* <Route path="credit-customers" element={<CreditCustomersPage />} /> */}
               </Route>
 
               {/* Rutas exclusivas para Admin */}
