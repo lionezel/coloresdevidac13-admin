@@ -22,7 +22,7 @@ export function useRestaurants() {
       );
       // Solo mostrar el restaurante con el ID específico
       setRestaurants(
-        allRestaurants.filter((r) => r.id === "RvBxRrSDgdK6mn6UMJUb")
+        allRestaurants.filter((r) => r.id === "IOjtPfRh1PQ6lnxDeZdJ")
       );
     });
     return () => unsub();
