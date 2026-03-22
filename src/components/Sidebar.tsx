@@ -124,11 +124,11 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
               my: 0.5,
               justifyContent: item.isLogo ? "center" : "flex-start",
               "&.Mui-selected": {
-                backgroundColor: GlobalColor,
+                backgroundColor: "#000000ff",
                 color: "white",
               },
               "&:hover": {
-                backgroundColor: GlobalColor,
+                backgroundColor: "#000000ff",
                 color: "white",
               },
             }}
@@ -149,7 +149,7 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
                     sx={{
                       width: 64,
                       height: 64,
-                      border: `2px solid ${GlobalColor}`,
+                      border: `2px solid #ffff`,
                       bgcolor: "#fff",
                     }}
                   >

@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { CssBaseline } from "@mui/material";
+import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import SidebarLayout from "./layouts/SidebarLayout";
+import { GlobalColor, GlobalSecondaryColor } from "./global/GlobalColor";
 
 import Dashboard from "./pages/Dashboard";
 import CategoriesPage from "./pages/CategoriesPage";
@@ -19,13 +20,25 @@ import AdditionsPage from "./pages/AdditionsPage";
 // import CreditCustomersPage from "./pages/CreditCustomersPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: GlobalColor,
+    },
+    secondary: {
+      main: GlobalSecondaryColor,
+    },
+  },
+});
+
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <CssBaseline />
-        <Routes>
-          <Route path="login" element={<LoginPage />} />
+    <ThemeProvider theme={theme}>
+      <BrowserRouter>
+        <AuthProvider>
+          <CssBaseline />
+          <Routes>
+            <Route path="login" element={<LoginPage />} />
 
           {/* Rutas Protegidas - Solo usuarios logueados */}
           <Route element={<ProtectedRoute />}>
@@ -56,5 +69,6 @@ export default function App() {
         </Routes>
       </AuthProvider>
     </BrowserRouter>
+    </ThemeProvider>
   );
 }

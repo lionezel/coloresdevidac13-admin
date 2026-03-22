@@ -39,6 +39,9 @@ export default function CheckoutDialog({
     const [paymentMethod, setPaymentMethod] = useState<string>("efectivo");
     const [cashReceived, setCashReceived] = useState<number | "">("");
     const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+    const [tipMode, setTipMode] = useState<"percentage" | "fixed">("percentage");
+    const [tipPercentage, setTipPercentage] = useState<number>(0);
+    const [tipFixedAmount, setTipFixedAmount] = useState<number | "">("");
 
     const { data: creditCustomers = [] } = useCollection<CreditCustomer>(
         restaurantId!,
@@ -50,7 +53,7 @@ export default function CheckoutDialog({
         [creditCustomers, selectedCustomerId]);
 
     // Calculate total whenever an order is active
-    const totalGeneral = useMemo(() => {
+    const subTotal = useMemo(() => {
         if (!order) return 0;
         return order.products.reduce(
             (acc, p) => acc + Number(p.total ?? Number(p.price) * Number(p.quantity)),
@@ -58,11 +61,22 @@ export default function CheckoutDialog({
         );
     }, [order]);
 
+    const tipAmount = useMemo(() => {
+        if (tipMode === "percentage") return Math.round(subTotal * (tipPercentage / 100));
+        return Number(tipFixedAmount) || 0;
+    }, [subTotal, tipPercentage, tipFixedAmount, tipMode]);
+
+    const totalGeneral = subTotal + tipAmount;
+
     // Sync default payment method when order changes
     React.useEffect(() => {
         if (order && order.paymentMethod) {
             setPaymentMethod(order.paymentMethod.toLowerCase());
         }
+        setTipMode("percentage");
+        setTipPercentage(0);
+        setTipFixedAmount("");
+        setCashReceived("");
     }, [order]);
 
     // Calculate change
@@ -87,7 +101,13 @@ export default function CheckoutDialog({
                 name: selectedCustomer.name
             } : undefined;
 
-            await onComplete(order, paymentMethod, customerData);
+            await onComplete({
+                ...order,
+                subTotal,
+                tipPercentage,
+                tipAmount,
+                total: totalGeneral
+            }, paymentMethod, customerData);
             onClose();
         }
     };
@@ -118,6 +138,78 @@ export default function CheckoutDialog({
                     </Typography>
                 </Box>
 
+                {/* Selector de Propina */}
+                <Box mb={3}>
+                    <Typography variant="subtitle2" color="text.secondary" mb={1} fontWeight={600}>
+                        Agregar Propina:
+                    </Typography>
+
+                    <Stack direction="row" spacing={1} mb={1.5}>
+                        <Button 
+                            variant={tipMode === "percentage" ? "contained" : "outlined"} 
+                            size="small" 
+                            onClick={() => setTipMode("percentage")}
+                            sx={{ borderRadius: 2 }}
+                        >
+                            Porcentaje (%)
+                        </Button>
+                        <Button 
+                            variant={tipMode === "fixed" ? "contained" : "outlined"} 
+                            size="small" 
+                            onClick={() => setTipMode("fixed")}
+                            sx={{ borderRadius: 2 }}
+                        >
+                            Monto Fijo ($)
+                        </Button>
+                    </Stack>
+
+                    {tipMode === "percentage" ? (
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ gap: 1 }}>
+                            {[0, 5, 10, 15].map((pct) => (
+                                <Button
+                                    key={pct}
+                                    variant={tipPercentage === pct ? "contained" : "outlined"}
+                                    onClick={() => setTipPercentage(pct)}
+                                    size="small"
+                                    sx={{ borderRadius: 2, minWidth: '60px' }}
+                                >
+                                    {pct}%
+                                </Button>
+                            ))}
+                            <TextField
+                                size="small"
+                                type="number"
+                                placeholder="Otro"
+                                value={![0, 5, 10, 15].includes(tipPercentage) ? tipPercentage || '' : ""}
+                                onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    if (val >= 0) setTipPercentage(val);
+                                }}
+                                InputProps={{
+                                    endAdornment: <Typography variant="caption" sx={{ ml: 0.5 }}>%</Typography>,
+                                    sx: { width: 90, borderRadius: 2, height: 32, fontSize: '0.875rem' }
+                                }}
+                            />
+                        </Stack>
+                    ) : (
+                        <TextField
+                            size="small"
+                            type="number"
+                            placeholder="Escribe el monto..."
+                            value={tipFixedAmount}
+                            onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setTipFixedAmount(val >= 0 ? val : "");
+                            }}
+                            fullWidth
+                            InputProps={{
+                                startAdornment: <Typography variant="caption" sx={{ mr: 1, fontWeight: 800 }}>$</Typography>,
+                                sx: { borderRadius: 2 }
+                            }}
+                        />
+                    )}
+                </Box>
+
                 {/* Resumen de Total */}
                 <Box
                     sx={{
@@ -126,18 +218,31 @@ export default function CheckoutDialog({
                         borderRadius: 3,
                         border: "2px solid #e2e8f0",
                         mb: 3,
-                        textAlign: "center",
                     }}
                 >
-                    <Typography variant="overline" color="text.secondary" fontWeight={800}>
-                        TOTAL A PAGAR
-                    </Typography>
-                    <Typography variant="h3" fontWeight={900} color="primary.main">
-                        ${totalGeneral.toLocaleString()}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" mt={1}>
-                        {order.products.length} producto(s)
-                    </Typography>
+                    <Stack spacing={1} mb={2}>
+                        <Stack direction="row" justifyContent="space-between">
+                            <Typography color="text.secondary" variant="body2" fontWeight={600}>Subtotal ({order.products.length} productos)</Typography>
+                            <Typography fontWeight={700} variant="body2">${subTotal.toLocaleString()}</Typography>
+                        </Stack>
+                        {tipAmount > 0 && (
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                <Typography color="text.secondary" variant="body2" fontWeight={600}>
+                                    Propina {tipMode === "percentage" && `(${tipPercentage}%)`}
+                                </Typography>
+                                <Typography fontWeight={700} variant="body2" color="success.main">+ ${tipAmount.toLocaleString()}</Typography>
+                            </Stack>
+                        )}
+                    </Stack>
+                    <Divider sx={{ mb: 2, borderStyle: 'dashed' }} />
+                    <Box sx={{ textAlign: "center" }}>
+                        <Typography variant="overline" color="text.secondary" fontWeight={800}>
+                            TOTAL A PAGAR
+                        </Typography>
+                        <Typography variant="h3" fontWeight={900} color="primary.main">
+                            ${totalGeneral.toLocaleString()}
+                        </Typography>
+                    </Box>
                 </Box>
 
                 <Divider sx={{ mb: 3 }} />

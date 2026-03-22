@@ -193,9 +193,26 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
     /* 🔹 Métodos de Pago y Tipos de Orden */
     const paymentMethodsMap: Record<string, number> = {};
     const orderTypesMap: Record<string, number> = {};
+    const paymentRevenue = { efectivo: 0, tarjeta: 0, transferencia: 0, otros: 0 };
+    let totalTips = 0;
 
     filteredOrders.forEach((order) => {
       const pm = order.paymentMethod?.toLowerCase() || "desconocido";
+      const total = Number(order.total || 0);
+      const tip = Number(order.tipAmount || 0);
+
+      totalTips += tip;
+
+      if (pm.includes("efectivo") || pm === "cash") {
+        paymentRevenue.efectivo += total;
+      } else if (pm.includes("tarjeta") || pm.includes("card") || pm.includes("crédito") || pm.includes("debito") || pm.includes("débito") || pm.includes("credito")) {
+        paymentRevenue.tarjeta += total;
+      } else if (pm.includes("transferencia") || pm.includes("nequi") || pm.includes("bancolombia") || pm.includes("daviplata") || pm.includes("pse")) {
+        paymentRevenue.transferencia += total;
+      } else {
+        paymentRevenue.otros += total;
+      }
+
       paymentMethodsMap[pm] = (paymentMethodsMap[pm] || 0) + 1;
       const ot = order.orderType || "no especificado";
       orderTypesMap[ot] = (orderTypesMap[ot] || 0) + 1;
@@ -231,6 +248,8 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
       orderTypes,
       peakHours,
       growth,
+      paymentRevenue,
+      totalTips,
     };
   }, [orders, period, customDate]);
 };

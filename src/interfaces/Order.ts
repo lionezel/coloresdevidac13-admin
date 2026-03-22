@@ -36,6 +36,9 @@ export interface Order {
     dateSuccess?: any; // Fecha de cobro final
     products: OrderProduct[];
     total: number;
+    subTotal?: number;
+    tipPercentage?: number;
+    tipAmount?: number;
     customerId?: string;
     customerName?: string;
     shippingCost?: number;

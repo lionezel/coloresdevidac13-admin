@@ -19,6 +19,10 @@ import {
   ShoppingBag,
   People,
   Receipt,
+  CreditCard,
+  AccountBalance,
+  LocalAtm,
+  Savings,
 } from "@mui/icons-material";
 import {
   LineChart,
@@ -268,7 +272,7 @@ export default function Dashboard() {
 
       {/* KPIs */}
       <Grid container spacing={3} mb={4}>
-        <Grid size={{ xs: 12, sm: 6, lg: 6 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Metric
             title="Ingresos"
             value={formatCOP(analytics.revenue)}
@@ -278,7 +282,7 @@ export default function Dashboard() {
           />
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, lg: 6 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Metric
             title="Órdenes"
             value={analytics.orders}
@@ -287,7 +291,7 @@ export default function Dashboard() {
           />
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, lg: 6 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Metric
             title="Usuarios"
             value={analytics.users}
@@ -296,12 +300,49 @@ export default function Dashboard() {
           />
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6, lg: 6 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Metric
             title="Ticket promedio"
             value={formatCOP(analytics.ticketAvg)}
             icon={<Receipt />}
             color="#ef6c00"
+          />
+        </Grid>
+
+        {/* Payment Methods Breakdown */}
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+          <Metric
+            title="Ingresos Efectivo"
+            value={formatCOP(analytics.paymentRevenue.efectivo)}
+            icon={<LocalAtm />}
+            color="#388e3c"
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+          <Metric
+            title="Ingresos Tarjeta"
+            value={formatCOP(analytics.paymentRevenue.tarjeta)}
+            icon={<CreditCard />}
+            color="#1976d2"
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+          <Metric
+            title="Ingresos Transferencia"
+            value={formatCOP(analytics.paymentRevenue.transferencia)}
+            icon={<AccountBalance />}
+            color="#fbc02d"
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+          <Metric
+            title="Total Propinas"
+            value={formatCOP(analytics.totalTips)}
+            icon={<Savings />}
+            color="#e91e63"
           />
         </Grid>
       </Grid>

@@ -1,1 +1,2 @@
-export const GlobalColor = "#5f36ff"
+export const GlobalColor = "#000000ff";
+export const GlobalSecondaryColor = "#000000ff";
