@@ -42,30 +42,53 @@ const toDate = (order: any): Date => {
 };
 
 const getStartOfPeriod = (period: Period, customDate?: Date): Date => {
-  const start = period === "custom" && customDate ? new Date(customDate.getTime()) : new Date();
+  const start = customDate ? new Date(customDate.getTime()) : new Date();
   start.setHours(0, 0, 0, 0);
 
   switch (period) {
     case "day":
+    case "custom":
       break;
-    case "week":
-      start.setDate(start.getDate() - 6);
+    case "week": {
+      const day = start.getDay();
+      const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+      start.setDate(diff);
       break;
+    }
     case "month":
-      start.setDate(start.getDate() - 29);
+      start.setDate(1);
       break;
     case "year":
-      start.setDate(start.getDate() - 364);
-      break;
-    case "custom":
+      start.setMonth(0, 1);
       break;
   }
   return start;
 };
 
 const getEndOfPeriod = (period: Period, customDate?: Date): Date => {
-  const end = period === "custom" && customDate ? new Date(customDate.getTime()) : new Date();
-  end.setHours(23, 59, 59, 999);
+  const end = customDate ? new Date(customDate.getTime()) : new Date();
+  
+  switch (period) {
+    case "day":
+    case "custom":
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "week": {
+      const day = end.getDay();
+      const diff = end.getDate() - day + (day === 0 ? 0 : 7);
+      end.setDate(diff);
+      end.setHours(23, 59, 59, 999);
+      break;
+    }
+    case "month":
+      end.setMonth(end.getMonth() + 1, 0);
+      end.setHours(23, 59, 59, 999);
+      break;
+    case "year":
+      end.setMonth(11, 31);
+      end.setHours(23, 59, 59, 999);
+      break;
+  }
   return end;
 };
 
@@ -84,10 +107,10 @@ const getPreviousPeriodRange = (period: Period, customDate?: Date): { start: Dat
       start.setDate(start.getDate() - 7);
       break;
     case "month":
-      start.setDate(start.getDate() - 30);
+      start.setMonth(start.getMonth() - 1);
       break;
     case "year":
-      start.setDate(start.getDate() - 365);
+      start.setFullYear(start.getFullYear() - 1);
       break;
   }
   return { start, end };

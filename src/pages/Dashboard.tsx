@@ -102,6 +102,29 @@ const Metric = ({
 );
 
 /* =========================
+   DATE HELPERS
+========================= */
+const getWeekString = (d: Date) => {
+  const date = new Date(d.getTime());
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+  const week1 = new Date(date.getFullYear(), 0, 4);
+  const week = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  return `${date.getFullYear()}-W${String(week).padStart(2, '0')}`;
+};
+
+const getDateOfISOWeek = (w: number, y: number) => {
+  const simple = new Date(y, 0, 1 + (w - 1) * 7);
+  const dow = simple.getDay();
+  const ISOweekStart = simple;
+  if (dow <= 4)
+    ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+  else
+    ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+  return ISOweekStart;
+};
+
+/* =========================
    DASHBOARD
 ========================= */
 export default function Dashboard() {
@@ -151,28 +174,68 @@ export default function Dashboard() {
           alignItems={{ xs: "stretch", sm: "center" }}
           sx={{ flexWrap: "wrap", gap: 1 }}
         >
-          {period === "custom" && (
+          {/* Specific Pickers */}
+          {period === "day" && (
             <TextField
               type="date"
               size="small"
-              value={
-                customDate
-                  ? `${customDate.getFullYear()}-${String(customDate.getMonth() + 1).padStart(2, "0")}-${String(customDate.getDate()).padStart(2, "0")}`
-                  : ""
-              }
+              value={customDate ? `${customDate.getFullYear()}-${String(customDate.getMonth() + 1).padStart(2, "0")}-${String(customDate.getDate()).padStart(2, "0")}` : ""}
               onChange={(e) => {
                 const val = e.target.value;
                 if (val) {
-                  // val comes as YYYY-MM-DD
                   const [y, m, d] = val.split('-');
                   setCustomDate(new Date(Number(y), Number(m) - 1, Number(d)));
-                  // Use a timeout to ensure state batches cleanly or force next tick
-                  setTimeout(() => setPeriod("custom"), 0);
-                } else {
-                  setCustomDate(undefined);
+                } else setCustomDate(new Date());
+              }}
+              sx={{ bgcolor: "#fff", borderRadius: 2, flexGrow: { xs: 1, sm: 0 }, minWidth: 160 }}
+            />
+          )}
+
+          {period === "week" && (
+            <TextField
+              type="week"
+              size="small"
+              value={customDate ? getWeekString(customDate) : ""}
+              onChange={(e) => {
+                const val = e.target.value; 
+                if (val) {
+                  const [y, w] = val.split('-W');
+                  setCustomDate(getDateOfISOWeek(Number(w), Number(y)));
+                } else setCustomDate(new Date());
+              }}
+              sx={{ bgcolor: "#fff", borderRadius: 2, flexGrow: { xs: 1, sm: 0 }, minWidth: 160 }}
+            />
+          )}
+
+          {period === "month" && (
+            <TextField
+              type="month"
+              size="small"
+              value={customDate ? `${customDate.getFullYear()}-${String(customDate.getMonth() + 1).padStart(2, "0")}` : ""}
+              onChange={(e) => {
+                const val = e.target.value; 
+                if (val) {
+                  const [y, m] = val.split('-');
+                  setCustomDate(new Date(Number(y), Number(m) - 1, 1));
+                } else setCustomDate(new Date());
+              }}
+              sx={{ bgcolor: "#fff", borderRadius: 2, flexGrow: { xs: 1, sm: 0 }, minWidth: 160 }}
+            />
+          )}
+
+          {period === "year" && (
+            <TextField
+              type="number"
+              size="small"
+              placeholder="YYYY"
+              value={customDate ? customDate.getFullYear() : ""}
+              onChange={(e) => {
+                const val = e.target.value; 
+                if (val && val.length === 4) {
+                  setCustomDate(new Date(Number(val), 0, 1));
                 }
               }}
-              sx={{ bgcolor: "#fff", borderRadius: 2, flexGrow: { xs: 1, sm: 0 } }}
+              sx={{ bgcolor: "#fff", borderRadius: 2, width: 100, flexGrow: { xs: 1, sm: 0 }, minWidth: 120 }}
             />
           )}
 
@@ -195,11 +258,10 @@ export default function Dashboard() {
               },
             }}
           >
-            <ToggleButton value="day">Hoy</ToggleButton>
+            <ToggleButton value="day">Día</ToggleButton>
             <ToggleButton value="week">Semana</ToggleButton>
             <ToggleButton value="month">Mes</ToggleButton>
             <ToggleButton value="year">Año</ToggleButton>
-            <ToggleButton value="custom">Fecha</ToggleButton>
           </ToggleButtonGroup>
         </Stack>
       </Stack>

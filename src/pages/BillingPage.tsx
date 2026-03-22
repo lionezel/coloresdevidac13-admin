@@ -14,9 +14,6 @@ import {
     Fade,
     IconButton,
     Tooltip as MuiTooltip,
-    Tabs,
-    Tab,
-    Paper,
 } from "@mui/material";
 import {
     AccessTime,
@@ -25,18 +22,15 @@ import {
     DeleteOutline,
     PointOfSale,
     InfoOutlined,
-    TableBar,
-    Person,
 } from "@mui/icons-material";
 import { useCollection } from "../hooks/useCollection";
 import { differenceInMinutes } from "date-fns";
 import { useParams } from "react-router-dom";
-import { Order, OrderStatus } from "../interfaces/Order";
+import { Order } from "../interfaces/Order";
 import CheckoutDialog from "../components/CheckoutDialog";
 
 export default function BillingPage() {
     const { restaurantId } = useParams<{ restaurantId: string }>();
-    const [tabValue, setTabValue] = useState(0);
 
     // Solo traemos órdenes para la caja (orders) y luego guardaremos en success
     const {
@@ -49,21 +43,12 @@ export default function BillingPage() {
         "orderssuccess"
     );
 
-    const { createItem: createCredit } = useCollection<Order>(
-        restaurantId!,
-        "orders_credit"
-    );
-
-    const { updateItem: updateCustomer } = useCollection<any>(
-        restaurantId!,
-        "credit_customers"
-    );
-
     const [orderToCheckout, setOrderToCheckout] = useState<Order | null>(null);
 
-    // Listar todas las órdenes de la colección "orders" sin filtrar por estado
+    // Filtrar SOLAMENTE las que están "porCobrar"
     const ordersToBill = useMemo(() => {
-        return [...allOrders]
+        return allOrders
+            .filter((o) => o.state === "porCobrar")
             .sort((a, b) => {
                 const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
                 const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
@@ -71,58 +56,16 @@ export default function BillingPage() {
             });
     }, [allOrders]);
 
-    // Filtrado por nombres para las pestañas (Sugerencia del usuario)
-    const tableOrders = useMemo(() => ordersToBill.filter(o =>
-        o.name.toLowerCase().trim().startsWith("mesa")
-    ), [ordersToBill]);
-
-    const creditOrders = useMemo(() => ordersToBill.filter(o =>
-        !o.name.toLowerCase().trim().startsWith("mesa")
-    ), [ordersToBill]);
-
-    const filteredOrders = useMemo(() => {
-        return tabValue === 0 ? tableOrders : creditOrders;
-    }, [tabValue, tableOrders, creditOrders]);
-
     const handleOpenCheckout = (order: Order) => {
         setOrderToCheckout(order);
     };
 
-    const handleTabChange = (_: any, newValue: number) => {
-        setTabValue(newValue);
-    };
-
-    const confirmCheckout = async (
-        orderToComplete: Order,
-        finalPaymentMethod: string,
-        customer?: { id: string; name: string }
-    ) => {
-        const now = new Date();
-        const totalAmount = orderToComplete.products.reduce(
-            (acc, p) => acc + Number(p.total ?? Number(p.price) * Number(p.quantity)),
-            0
-        ) + (Number(orderToComplete.shippingCost) || 0);
-
-        const successOrder: any = {
+    const confirmCheckout = async (orderToComplete: Order, finalPaymentMethod: string) => {
+        await createSuccess({
             ...orderToComplete,
             paymentMethod: finalPaymentMethod,
             state: "completada",
-            date: now,
-            dateSuccess: now,
-        };
-
-        if (customer?.id) successOrder.customerId = customer.id;
-        if (customer?.name) successOrder.customerName = customer.name;
-
-        // Eliminar el id anterior para no sobreescribir ni guardar basura en db
-        delete successOrder.id;
-
-        if (finalPaymentMethod === "fiado" && customer?.id) {
-            await createCredit(successOrder);
-        } else {
-            await createSuccess(successOrder);
-        }
-
+        });
         if (orderToComplete.id) {
             await deleteItem(orderToComplete.id);
         }
@@ -146,33 +89,10 @@ export default function BillingPage() {
                         Órdenes listas para ser cobradas y cerradas.
                     </Typography>
                 </Box>
-
-                <Paper
-                    elevation={0}
-                    sx={{
-                        p: 0.5,
-                        borderRadius: 3,
-                        bgcolor: "#f1f5f9",
-                        border: "1px solid #e2e8f0"
-                    }}
-                >
-                    <Tabs
-                        value={tabValue}
-                        onChange={handleTabChange}
-                        sx={{
-                            minHeight: 44,
-                            "& .MuiTabs-indicator": { height: "100%", borderRadius: 2, zIndex: 0, bgcolor: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" },
-                            "& .MuiTab-root": { minHeight: 44, zIndex: 1, textTransform: "none", fontWeight: 700, px: 3, fontSize: "0.95rem", borderRadius: 2 }
-                        }}
-                    >
-                        <Tab label={`Mesas (${tableOrders.length})`} icon={<TableBar fontSize="small" />} iconPosition="start" />
-                        <Tab label={`Fiadores / Otros (${creditOrders.length})`} icon={<Person fontSize="small" />} iconPosition="start" />
-                    </Tabs>
-                </Paper>
             </Stack>
 
             <Grid container spacing={3}>
-                {filteredOrders.length === 0 ? (
+                {ordersToBill.length === 0 ? (
                     <Grid size={12}>
                         <Fade in timeout={800}>
                             <Box
@@ -186,16 +106,16 @@ export default function BillingPage() {
                             >
                                 <PointOfSale sx={{ fontSize: 70, color: "#cbd5e1", mb: 3 }} />
                                 <Typography variant="h5" color="text.secondary" fontWeight={800} mb={1}>
-                                    No hay órdenes en esta categoría
+                                    No hay órdenes para cobrar
                                 </Typography>
                                 <Typography variant="body1" color="text.disabled">
-                                    Las órdenes aparecerán aquí cuando estén listas para cobrar.
+                                    Cuando la cocina marque una orden como lista, aparecerá aquí.
                                 </Typography>
                             </Box>
                         </Fade>
                     </Grid>
                 ) : (
-                    filteredOrders.map((order) => (
+                    ordersToBill.map((order) => (
                         <Grid key={order.id} size={{ xs: 12, md: 6, lg: 4 }}>
                             <BillingCard
                                 order={order}
@@ -230,12 +150,11 @@ function BillingCard({
     const minutes = differenceInMinutes(new Date(), date);
 
     const totalGeneral = useMemo(() => {
-        const subtotal = order.products.reduce(
+        return order.products.reduce(
             (acc, p) => acc + Number(p.total ?? Number(p.price) * Number(p.quantity)),
             0
         );
-        return subtotal + (Number(order.shippingCost) || 0);
-    }, [order.products, order.shippingCost]);
+    }, [order.products]);
 
     return (
         <Fade in timeout={500}>
@@ -276,7 +195,7 @@ function BillingCard({
 
                         <Chip
                             icon={<ShoppingBag fontSize="small" />}
-                            label="Listo p. Cobro"
+                            label="Por Cobrar"
                             color="secondary"
                             size="small"
                             sx={{ fontWeight: 800, borderRadius: 2 }}
@@ -342,14 +261,6 @@ function BillingCard({
                     </Stack>
 
                     <Box sx={{ mt: "auto", pt: 2.5, borderTop: "2px solid #f1f5f9" }}>
-                        {order.shippingCost ? (
-                            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-                                <Typography variant="caption" color="text.secondary" fontWeight={700}>Costo de Envío</Typography>
-                                <Typography variant="body2" fontWeight={800} color="text.secondary">
-                                    ${Number(order.shippingCost).toLocaleString()}
-                                </Typography>
-                            </Stack>
-                        ) : null}
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                             <Chip label={order.paymentMethod.toUpperCase()} size="small" variant="outlined" sx={{ fontWeight: 800, fontSize: "0.7rem" }} />
                             <Box sx={{ textAlign: "right" }}>

@@ -16,6 +16,7 @@ import CategoryIcon from "@mui/icons-material/Category";
 import InventoryIcon from "@mui/icons-material/Inventory";
 import RestaurantIcon from "@mui/icons-material/Restaurant";
 import DashboardIcon from "@mui/icons-material/Dashboard";
+import ReceiptIcon from "@mui/icons-material/Receipt";
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 import { Link, useLocation, useParams } from "react-router-dom";
 import { GlobalColor } from "../global/GlobalColor";
@@ -70,6 +71,11 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
       text: "Categories",
       icon: <CategoryIcon />,
       path: `/${restaurantId}/categories`,
+    },
+    {
+      text: "Orders",
+      icon: <ReceiptIcon />,
+      path: `/${restaurantId}/orders`,
     },
     {
       text: "Caja / Facturación",
