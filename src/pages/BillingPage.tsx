@@ -24,6 +24,9 @@ import {
     InfoOutlined,
 } from "@mui/icons-material";
 import { useCollection } from "../hooks/useCollection";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { db } from "../firebase/config";
+import { Product } from "../interfaces/product";
 import { differenceInMinutes } from "date-fns";
 import { useParams } from "react-router-dom";
 import { Order } from "../interfaces/Order";
@@ -61,13 +64,50 @@ export default function BillingPage() {
     };
 
     const confirmCheckout = async (orderToComplete: Order, finalPaymentMethod: string) => {
-        await createSuccess({
-            ...orderToComplete,
-            paymentMethod: finalPaymentMethod,
-            state: "completada",
-        });
-        if (orderToComplete.id) {
-            await deleteItem(orderToComplete.id);
+        try {
+            // -- DESCUENTO DE STOCK --
+            const todayStr = new Date().toLocaleDateString();
+            for (const p of orderToComplete.products) {
+                if (!p.productId || !p.variantId) continue;
+                const docRef = doc(db, "restaurants", restaurantId!, "products", p.productId);
+                const snap = await getDoc(docRef);
+                if (snap.exists()) {
+                    const pData = snap.data() as Product;
+                    const vIndex = pData.variants?.findIndex(v => v.id === p.variantId);
+                    if (vIndex !== undefined && vIndex > -1) {
+                        let variant = pData.variants[vIndex];
+                        // Reset diario
+                        if (variant.lastStockResetDate !== todayStr) {
+                            variant.initialDailyStock = variant.stock;
+                            variant.lastStockResetDate = todayStr;
+                        }
+                        // Descontar
+                        const qty = Number(p.quantity || 1);
+                        variant.stock = Math.max(0, (variant.stock || 0) - qty);
+                        
+                        pData.variants[vIndex] = variant;
+                        await updateDoc(docRef, { variants: pData.variants });
+                    }
+                }
+            }
+
+            // -- GUARDAR ORDEN --
+            const rawOrder = {
+                ...orderToComplete,
+                paymentMethod: finalPaymentMethod,
+                state: "completada",
+            };
+            // Firestore rechaza campos con valor `undefined`; los eliminamos.
+            const cleanOrder = Object.fromEntries(
+                Object.entries(rawOrder).filter(([, v]) => v !== undefined)
+            ) as Order;
+            await createSuccess(cleanOrder);
+            if (orderToComplete.id) {
+                await deleteItem(orderToComplete.id);
+            }
+        } catch (error) {
+            console.error("Error al procesar inventario o caja:", error);
+            alert("Error al procesar la orden o el inventario. Revisa la consola.");
         }
     };
 

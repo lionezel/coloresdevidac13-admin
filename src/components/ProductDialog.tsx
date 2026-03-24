@@ -8,11 +8,15 @@ import {
   Stack,
   MenuItem,
   CircularProgress,
+  Typography,
+  Box,
+  Divider,
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { Product, Variant } from "../interfaces/product";
 import { storage } from "../firebase/config";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 interface Props {
   open: boolean;
@@ -30,10 +34,27 @@ export default function ProductDialog({
   onSubmit,
 }: Props) {
   const [values, setValues] = useState<Product>(initial);
-  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    setValues(initial);
+    // Asegurar compatibilidad: si no tiene variante aún, crear una base
+    if (!initial.variants || initial.variants.length === 0) {
+      setValues({
+        ...initial,
+        variants: [
+          {
+            id: crypto.randomUUID(),
+            label: "Único",
+            price: 0,
+            stock: 0,
+            initialDailyStock: 0,
+            image: "",
+          },
+        ],
+      });
+    } else {
+      setValues(initial);
+    }
   }, [initial]);
 
   const handleChange = <K extends keyof Product>(
@@ -44,19 +65,18 @@ export default function ProductDialog({
   };
 
   const handleVariantChange = (
-    index: number,
     key: keyof Variant,
     value: any
   ) => {
     const updated = [...values.variants];
-    updated[index] = { ...updated[index], [key]: value };
+    updated[0] = { ...updated[0], [key]: value };
     setValues({ ...values, variants: updated });
   };
 
   // 🔥 SUBIR IMAGEN A FIREBASE
-  const uploadImage = async (file: File, index: number) => {
+  const uploadImage = async (file: File) => {
     try {
-      setUploadingIndex(index);
+      setUploading(true);
 
       const storageRef = ref(
         storage,
@@ -66,158 +86,164 @@ export default function ProductDialog({
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
 
-      handleVariantChange(index, "image", url);
+      handleVariantChange("image", url);
     } finally {
-      setUploadingIndex(null);
+      setUploading(false);
     }
   };
 
-  const addVariant = () => {
-    setValues((p) => ({
-      ...p,
-      variants: [
-        ...p.variants,
-        {
-          id: crypto.randomUUID(),
-          label: "",
-          price: 0,
-          stock: 0,
-          image: "",
-        },
-      ],
-    }));
-  };
-
-  const removeVariant = (index: number) => {
-    setValues((p) => ({
-      ...p,
-      variants: p.variants.filter((_, i) => i !== index),
-    }));
-  };
+  const currentVariant = values.variants?.[0] || { price: 0, stock: 0, initialDailyStock: 0, image: "" };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>
-        {initial.id ? "Editar producto" : "Nuevo producto"}
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" PaperProps={{ sx: { borderRadius: 4, overflow: 'hidden' } }}>
+      <DialogTitle sx={{ fontWeight: 800, fontSize: "1.25rem", pb: 2, bgcolor: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+        {initial.id ? "📝 Editar Producto" : "📦 Nuevo Producto"}
       </DialogTitle>
 
-      <DialogContent>
-        <Stack spacing={2} mt={1}>
-          <TextField
-            label="Nombre"
-            value={values.name}
-            onChange={(e) => handleChange("name", e.target.value)}
-            fullWidth
-          />
-
-          <TextField
-            select
-            label="Categoría"
-            value={values.category}
-            onChange={(e) => handleChange("category", e.target.value)}
-            fullWidth
-          >
-            {categories.map((c) => (
-              <MenuItem key={c.id} value={c.name}>
-                {c.name}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="Descripción"
-            value={values.description}
-            onChange={(e) => handleChange("description", e.target.value)}
-            fullWidth
-          />
-
-          {/* VARIANTES */}
-          {values.variants.map((v, i) => (
-            <Stack
-              key={v.id}
-              spacing={1}
-              p={2}
-              border="1px solid #eee"
-              borderRadius={2}
-            >
+      <DialogContent sx={{ p: 4 }}>
+        <Stack spacing={4} mt={1}>
+          
+          {/* SECCIÓN: INFORMACIÓN GENERAL */}
+          <Box>
+            <Typography variant="overline" color="primary" fontWeight={800} sx={{ letterSpacing: 1.2, display: "block", mb: 2 }}>
+              Información General
+            </Typography>
+            <Stack spacing={2.5}>
               <TextField
-                label="Variante (ej: 25ml, 50ml, 100ml)"
-                value={v.label}
-                onChange={(e) =>
-                  handleVariantChange(i, "label", e.target.value)
-                }
+                label="Nombre del Producto"
+                value={values.name}
+                onChange={(e) => handleChange("name", e.target.value)}
+                fullWidth
+                variant="outlined"
               />
 
-              <Stack direction="row" spacing={1}>
+              <TextField
+                select
+                label="Categoría"
+                value={values.category}
+                onChange={(e) => handleChange("category", e.target.value)}
+                fullWidth
+              >
+                {categories.map((c) => (
+                  <MenuItem key={c.id} value={c.name}>
+                    {c.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              <TextField
+                label="Descripción"
+                value={values.description}
+                onChange={(e) => handleChange("description", e.target.value)}
+                fullWidth
+                multiline
+                rows={2}
+              />
+            </Stack>
+          </Box>
+
+          <Divider />
+
+          {/* SECCIÓN: PRECIO E INVENTARIO */}
+          <Box>
+            <Typography variant="overline" color="primary" fontWeight={800} sx={{ letterSpacing: 1.2, display: "block", mb: 2 }}>
+              Precio e Inventario
+            </Typography>
+            <Stack spacing={2.5}>
+              <TextField
+                label="Precio Base ($)"
+                type="number"
+                value={currentVariant.price === 0 ? "" : currentVariant.price}
+                onChange={(e) => handleVariantChange("price", Number(e.target.value))}
+                fullWidth
+              />
+
+              <Stack direction="row" spacing={2}>
                 <TextField
-                  label="Precio"
+                  label="Stock Actual"
                   type="number"
-                  value={v.price}
-                  onChange={(e) =>
-                    handleVariantChange(i, "price", Number(e.target.value))
-                  }
+                  value={currentVariant.stock === 0 ? "" : currentVariant.stock}
+                  onChange={(e) => handleVariantChange("stock", Number(e.target.value))}
                   fullWidth
                 />
 
                 <TextField
-                  label="Stock"
+                  label="Stock Inicial (Día)"
                   type="number"
-                  value={v.stock}
-                  onChange={(e) =>
-                    handleVariantChange(i, "stock", Number(e.target.value))
-                  }
+                  value={(currentVariant.initialDailyStock ?? currentVariant.stock) === 0 ? "" : (currentVariant.initialDailyStock ?? currentVariant.stock)}
+                  onChange={(e) => handleVariantChange("initialDailyStock", Number(e.target.value))}
                   fullWidth
+                  helperText="Se asume al inicio"
                 />
               </Stack>
+            </Stack>
+          </Box>
 
-              {/* 🔥 SUBIR IMAGEN */}
-              <Button component="label" variant="outlined">
-                Subir imagen
-                <input
-                  hidden
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) =>
-                    e.target.files &&
-                    uploadImage(e.target.files[0], i)
-                  }
-                />
-              </Button>
+          <Divider />
 
-              {uploadingIndex === i && <CircularProgress size={24} />}
-
-              {v.image && (
-                <img
-                  src={v.image}
-                  alt="preview"
-                  style={{
-                    width: 90,
-                    height: 90,
-                    objectFit: "cover",
-                    borderRadius: 8,
-                  }}
-                />
+          {/* SECCIÓN: IMAGEN */}
+          <Box>
+            <Typography variant="overline" color="primary" fontWeight={800} sx={{ letterSpacing: 1.2, display: "block", mb: 2 }}>
+              Fotografía
+            </Typography>
+            <Stack direction="row" spacing={3} alignItems="center">
+              
+              {currentVariant.image ? (
+                <Box sx={{ position: "relative" }}>
+                   <img
+                    src={currentVariant.image}
+                    alt="preview"
+                    style={{
+                      width: 100,
+                      height: 100,
+                      objectFit: "cover",
+                      borderRadius: 12,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                    }}
+                  />
+                </Box>
+              ) : (
+                <Box sx={{ width: 100, height: 100, borderRadius: 3, bgcolor: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", border: "2px dashed #cbd5e1" }}>
+                  <Typography variant="caption" color="text.secondary">Sin foto</Typography>
+                </Box>
               )}
 
-              <Button
-                color="error"
-                onClick={() => removeVariant(i)}
-                disabled={values.variants.length === 1}
-              >
-                Eliminar variante
-              </Button>
+              <Stack spacing={1} flex={1}>
+                 <Button 
+                    component="label" 
+                    variant="outlined" 
+                    size="large"
+                    startIcon={uploading ? <CircularProgress size={20} /> : <CloudUploadIcon />}
+                    disabled={uploading}
+                    sx={{ textTransform: "none", borderRadius: 2 }}
+                 >
+                   {uploading ? "Subiendo..." : "Subir Imagen"}
+                   <input
+                     hidden
+                     type="file"
+                     accept="image/*"
+                     onChange={(e) => e.target.files && uploadImage(e.target.files[0])}
+                   />
+                 </Button>
+                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                    Formatos: JPG, PNG. Diseño cuadrado (500x500px).
+                 </Typography>
+              </Stack>
             </Stack>
-          ))}
+          </Box>
 
-          <Button variant="outlined" onClick={addVariant}>
-            ➕ Agregar variante
-          </Button>
         </Stack>
       </DialogContent>
 
-      <DialogActions>
-        <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" onClick={() => onSubmit(values)}>
-          Guardar
+      <DialogActions sx={{ p: 3, pt: 1, bgcolor: "#f8fafc", borderTop: "1px solid #e2e8f0" }}>
+        <Button onClick={onClose} sx={{ color: "text.secondary", fontWeight: 700 }}>Cancelar</Button>
+        <Button 
+          variant="contained" 
+          size="large"
+          onClick={() => onSubmit(values)}
+          sx={{ borderRadius: 2, px: 4, fontWeight: 800, boxShadow: "0 4px 14px rgba(0,0,0,0.15)" }}
+        >
+          Guardar Producto
         </Button>
       </DialogActions>
     </Dialog>

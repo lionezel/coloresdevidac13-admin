@@ -133,20 +133,29 @@ export default function CheckoutDialog({
                 name: selectedCustomer.name
             } : undefined;
 
-            await onComplete({
+            const payload: any = {
                 ...order,
                 subTotal,
-                discountAmount: discountAmount > 0 ? discountAmount : undefined,
-                discountType: discountAmount > 0 ? (discountType as "total" | "producto") : undefined,
-                discountMode: discountAmount > 0 ? discountMode : undefined,
-                discountValue: discountAmount > 0 ? Number(discountValue) : undefined,
+                discountAmount: discountAmount > 0 ? discountAmount : null,
+                discountType: discountAmount > 0 ? (discountType as "total" | "producto") : null,
+                discountMode: discountAmount > 0 ? discountMode : null,
+                discountValue: discountAmount > 0 ? Number(discountValue) : null,
                 discountProductId: discountAmount > 0 && discountType === "producto" && discountProductIdx !== "" 
                     ? order.products[Number(discountProductIdx)].productId 
-                    : undefined,
+                    : null,
                 tipPercentage,
                 tipAmount,
-                total: totalGeneral
-            }, paymentMethod, customerData);
+                total: totalGeneral,
+                customer: customerData
+            };
+
+            Object.keys(payload).forEach(key => {
+                if (payload[key] === undefined) {
+                    delete payload[key];
+                }
+            });
+
+            await onComplete(payload as Order, paymentMethod, customerData);
             onClose();
         }
     };

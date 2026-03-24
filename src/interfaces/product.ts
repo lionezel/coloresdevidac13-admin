@@ -3,6 +3,8 @@ export interface Variant {
   label: string;
   price: number;
   stock: number;
+  initialDailyStock?: number;
+  lastStockResetDate?: string;
   image: string;
 }
 

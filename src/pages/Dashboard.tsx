@@ -39,6 +39,7 @@ import {
 } from "recharts";
 
 import { useCollection } from "../hooks/useCollection";
+import { Product } from "../interfaces/product";
 import { useAnalytics, Period } from "../hooks/useAnalytics";
 import { formatCOP } from "../components/format";
 
@@ -139,8 +140,14 @@ export default function Dashboard() {
     "orderssuccess"
   );
 
+  const { data: products = [] } = useCollection<Product>(
+    restaurantId ?? "",
+    "products"
+  );
+
   const [period, setPeriod] = useState<Period>("month");
   const [customDate, setCustomDate] = useState<Date | undefined>(new Date());
+  const [stockSearch, setStockSearch] = useState("");
   const analytics = useAnalytics(orders, period, customDate);
 
   if (!restaurantId) {
@@ -201,7 +208,7 @@ export default function Dashboard() {
               size="small"
               value={customDate ? getWeekString(customDate) : ""}
               onChange={(e) => {
-                const val = e.target.value; 
+                const val = e.target.value;
                 if (val) {
                   const [y, w] = val.split('-W');
                   setCustomDate(getDateOfISOWeek(Number(w), Number(y)));
@@ -217,7 +224,7 @@ export default function Dashboard() {
               size="small"
               value={customDate ? `${customDate.getFullYear()}-${String(customDate.getMonth() + 1).padStart(2, "0")}` : ""}
               onChange={(e) => {
-                const val = e.target.value; 
+                const val = e.target.value;
                 if (val) {
                   const [y, m] = val.split('-');
                   setCustomDate(new Date(Number(y), Number(m) - 1, 1));
@@ -234,7 +241,7 @@ export default function Dashboard() {
               placeholder="YYYY"
               value={customDate ? customDate.getFullYear() : ""}
               onChange={(e) => {
-                const val = e.target.value; 
+                const val = e.target.value;
                 if (val && val.length === 4) {
                   setCustomDate(new Date(Number(val), 0, 1));
                 }
@@ -508,6 +515,70 @@ export default function Dashboard() {
                   <Bar dataKey="revenue" fill="#2e7d32" radius={[0, 4, 4, 0]} barSize={20} />
                 </BarChart>
               </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* INVENTARIO / STOCK DIARIO */}
+        <Grid size={{ xs: 12 }}>
+          <Card sx={{ borderRadius: 4, height: '100%', mt: 2 }}>
+            <CardContent>
+              <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={2} mb={2}>
+                <Typography fontWeight={800}>
+                  Control de Inventario Diario
+                </Typography>
+                <TextField
+                  size="small"
+                  placeholder="Buscar producto…"
+                  value={stockSearch}
+                  onChange={(e) => setStockSearch(e.target.value)}
+                  sx={{ bgcolor: "#fff", borderRadius: 2, minWidth: 220 }}
+                />
+              </Stack>
+              <Box sx={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #e2e8f0", textAlign: "left" }}>
+                      <th style={{ padding: "12px 16px", color: "#64748b" }}>Producto</th>
+                      <th style={{ padding: "12px 16px", color: "#64748b" }}>Categoría</th>
+                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b" }}>Stock Inicial</th>
+                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b" }}>Ventas</th>
+                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b" }}>Stock Actual</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.flatMap(p =>
+                      p.variants?.map(v => {
+                        const isToday = v.lastStockResetDate === new Date().toLocaleDateString();
+                        const initial = isToday && v.initialDailyStock !== undefined ? v.initialDailyStock : v.stock;
+                        const current = v.stock;
+                        const sold = initial - current;
+
+                        return {
+                          name: `${p.name}`,
+                          category: p.category,
+                          initial,
+                          current,
+                          sold
+                        };
+                      }) || []
+                    )
+                      .filter(item =>
+                        item.name.toLowerCase().includes(stockSearch.toLowerCase())
+                      )
+                      .sort((a, b) => b.sold - a.sold)
+                      .map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "12px 16px", fontWeight: 700, color: "#334155" }}>{item.name}</td>
+                          <td style={{ padding: "12px 16px", color: "#94a3b8", fontWeight: 500 }}>{item.category}</td>
+                          <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#64748b" }}>{item.initial}</td>
+                          <td style={{ padding: "12px 16px", textAlign: "right", color: item.sold > 0 ? "#f59e0b" : "#cbd5e1", fontWeight: 800 }}>{item.sold}</td>
+                          <td style={{ padding: "12px 16px", textAlign: "right", color: item.current <= 5 ? "#ef4444" : "#10b981", fontWeight: 900 }}>{item.current}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </Box>
             </CardContent>
           </Card>
         </Grid>
