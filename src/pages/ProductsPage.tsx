@@ -20,6 +20,7 @@ import { PremiumDataGrid } from "../components/PremiumDataGrid";
 import { useCollection } from "../hooks/useCollection";
 import ProductDialog from "../components/ProductDialog";
 import { Product } from "../interfaces/product";
+import { useAuth } from "../hooks/useAuth";
 
 export default function ProductsPage() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -37,6 +38,8 @@ export default function ProductsPage() {
     restaurantId ?? "",
     "category"
   );
+
+  const { canCreate, canEdit, canDelete } = useAuth();
 
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState<Product | null>(null);
@@ -75,6 +78,7 @@ export default function ProductsPage() {
         <Stack direction="row" spacing={1}>
           <Button
             size="small"
+            disabled={!canEdit}
             onClick={() => {
               setCurrent(params.row as Product);
               setOpen(true);
@@ -85,7 +89,10 @@ export default function ProductsPage() {
           <Button
             size="small"
             color="error"
-            onClick={() => deleteItem(params.row.id)}
+            disabled={!canDelete}
+            onClick={() => {
+                if(window.confirm("¿Seguro que desea eliminar?")) deleteItem(params.row.id)
+            }}
           >
             Eliminar
           </Button>
@@ -104,16 +111,18 @@ export default function ProductsPage() {
     >
       <Typography variant="h5">📦 Productos</Typography>
 
-      <Button
-        variant="contained"
-        fullWidth={isMobile}
-        onClick={() => {
-          setCurrent(null);
-          setOpen(true);
-        }}
-      >
-        Agregar producto
-      </Button>
+      {canCreate && (
+        <Button
+            variant="contained"
+            fullWidth={isMobile}
+            onClick={() => {
+            setCurrent(null);
+            setOpen(true);
+            }}
+        >
+            Agregar producto
+        </Button>
+      )}
     </Stack>
   );
 
@@ -144,21 +153,27 @@ export default function ProductsPage() {
                 </Box>
 
                 <Stack>
-                  <IconButton
-                    onClick={() => {
-                      setCurrent(product);
-                      setOpen(true);
-                    }}
-                  >
-                    <EditIcon />
-                  </IconButton>
+                  {canEdit && (
+                    <IconButton
+                        onClick={() => {
+                        setCurrent(product);
+                        setOpen(true);
+                        }}
+                    >
+                        <EditIcon />
+                    </IconButton>
+                  )}
 
-                  <IconButton
-                    color="error"
-                    onClick={() => deleteItem(product.id!)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+                  {canDelete && (
+                    <IconButton
+                        color="error"
+                        onClick={() => {
+                            if(window.confirm("¿Seguro que desea eliminar?")) deleteItem(product.id!)
+                        }}
+                    >
+                        <DeleteIcon />
+                    </IconButton>
+                  )}
                 </Stack>
               </Stack>
             </CardContent>

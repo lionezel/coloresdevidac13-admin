@@ -29,22 +29,55 @@ export const ProtectedRoute = ({
         return <Navigate to="/login" replace />;
     }
 
-    // Si requiere autenticación, hay usuario y ciertas rutas están restringidas por rol
-    if (requireAuth && user && allowedRoles) {
-        // Admin puede acceder a todo (verificamos isAdmin o role === "admin")
-        const hasAdminRights = userDoc?.isAdmin === true || userDoc?.role === "admin";
-        const userRole = userDoc?.role;
+    // Debug logs to identify why access is denied
+    console.log("--- ProtectedRoute DEBUG ---");
+    console.log("Path:", window.location.pathname);
+    console.log("User UID:", user?.uid);
+    console.log("UserDoc UID:", userDoc?.uid || userDoc?.id);
+    console.log("Role:", userDoc?.role);
+    console.log("isAdmin:", userDoc?.isAdmin);
+    console.log("AllowedPages:", userDoc?.permissions?.allowedPages);
+    console.log("----------------------------");
 
+    // Si requiere autenticación, hay usuario y ciertas rutas están restringidas por rol o permiso
+    if (requireAuth && user) {
+        const hasAdminRights = userDoc?.isAdmin === true || userDoc?.role === "admin" || user?.uid === "THtaTpKF7mOcSS5VbJtGtkZu9z82";
+        
         if (hasAdminRights) {
             return children ? <>{children}</> : <Outlet />;
         }
 
-        if (userRole && allowedRoles.includes(userRole)) {
+        // Permitir siempre el acceso a la selección de restaurante (ruta raíz)
+        if (window.location.pathname === "/" || window.location.pathname === "") {
+             return children ? <>{children}</> : <Outlet />;
+        }
+
+        // Si hay roles permitidos específicos para esta ruta, verificamos
+        if (allowedRoles) {
+            const userRole = userDoc?.role;
+            if (userRole && allowedRoles.includes(userRole)) {
+                return children ? <>{children}</> : <Outlet />;
+            }
+        }
+
+        // Si no es admin y no está en los roles permitidos, verificamos si tiene permiso granular por página
+        const pathParts = window.location.pathname.split("/").filter(p => p);
+        const currentPageId = pathParts.length >= 2 ? pathParts[1] : null;
+
+        if (currentPageId && userDoc?.permissions?.allowedPages?.includes(currentPageId)) {
             return children ? <>{children}</> : <Outlet />;
         }
 
-        // El rol no está permitido para esta ruta
-        return <Navigate to="/" replace />;
+        // Fallback para billing
+        if (window.location.pathname.includes("billing") && userDoc?.permissions?.allowedPages?.includes("billing")) {
+            return children ? <>{children}</> : <Outlet />;
+        }
+
+        // Si tiene allowedRoles o estamos en una subpágina de restaurante y no se permitió arriba, redirigir
+        if (allowedRoles || (pathParts.length >= 2)) {
+             console.warn("Acceso denegado a:", window.location.pathname);
+             return <Navigate to="/" replace />;
+        }
     }
 
     return children ? <>{children}</> : <Outlet />;

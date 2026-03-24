@@ -11,6 +11,7 @@ import {
   Box,
   Tooltip,
 } from "@mui/material";
+import PeopleIcon from "@mui/icons-material/People";
 import AddCircleIcon from "@mui/icons-material/AddCircle";
 import CategoryIcon from "@mui/icons-material/Category";
 import InventoryIcon from "@mui/icons-material/Inventory";
@@ -53,56 +54,77 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
 
   const menuItems = [
     {
+      id: "inicio",
       text: "Inicio",
       path: "/",
       isLogo: true,
     },
     {
+      id: "dashboard",
       text: "Dashboard",
       icon: <DashboardIcon />,
       path: `/${restaurantId}/dashboard`,
     },
     {
+      id: "products",
       text: "Products",
       icon: <InventoryIcon />,
       path: `/${restaurantId}/products`,
     },
     {
+      id: "categories",
       text: "Categories",
       icon: <CategoryIcon />,
       path: `/${restaurantId}/categories`,
     },
     {
+      id: "orders",
       text: "Orders",
       icon: <ReceiptIcon />,
       path: `/${restaurantId}/orders`,
     },
     {
+      id: "billing",
       text: "Caja / Facturación",
       icon: <PointOfSaleIcon />,
       path: `/${restaurantId}/billing`,
     },
     {
+      id: "additions",
       text: "Adiciones",
       icon: <AddCircleIcon />,
       path: `/${restaurantId}/additions`,
     },
-    // {
-    //   text: "Clientes de Crédito",
-    //   icon: <ReceiptIcon />,
-    //   path: `/${restaurantId}/credit-customers`,
-    // },
+    {
+      id: "users",
+      text: "Usuarios",
+      icon: <PeopleIcon />,
+      path: `/${restaurantId}/users`,
+    },
   ];
 
   const filteredMenuItems = menuItems.filter((item) => {
     if (item.isLogo) return true;
-    if (hasAdminRights) return true;
+    
+    // Superadmin o admin general tiene acceso a todo
+    if (userDoc?.isAdmin === true || userRole === "admin") return true;
+
+    // 🔒 RESTRICCIÓN: Solo admin puede ver la página de usuarios
+    if (item.id === "users") return false;
+
+    // Si tiene permisos granulares definidos
+    if (userDoc?.permissions?.allowedPages) {
+      return userDoc.permissions.allowedPages.includes(item.id);
+    }
+
+    // Fallback para roles antiguos si no hay permisos granulares
     if (isCajero) {
       return (
-        item.path === `/${restaurantId}/billing` ||
-        item.path === `/${restaurantId}/credit-customers`
+        item.id === "billing" ||
+        item.id === "orders"
       );
     }
+
     return false;
   });
 

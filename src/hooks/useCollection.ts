@@ -3,6 +3,7 @@ import {
   collection,
   addDoc,
   updateDoc,
+  setDoc,
   deleteDoc,
   doc,
   onSnapshot,
@@ -38,7 +39,13 @@ export function useCollection<T>(restaurantId: string, colName: string) {
   const updateItem = async (id: string, item: Partial<Omit<T, "id">>) => {
     if (!restaurantId) return;
     const docRef = doc(db, "restaurants", restaurantId, colName, id);
-    await updateDoc(docRef, item);
+    await updateDoc(docRef, item as any);
+  };
+
+  const setItem = async (id: string, item: T) => {
+    if (!restaurantId) return;
+    const docRef = doc(db, "restaurants", restaurantId, colName, id);
+    await setDoc(docRef, item as any);
   };
 
   const deleteItem = async (id: string) => {
@@ -47,5 +54,5 @@ export function useCollection<T>(restaurantId: string, colName: string) {
     await deleteDoc(docRef);
   };
 
-  return { data, createItem, updateItem, deleteItem };
+  return { data, createItem, updateItem, setItem, deleteItem };
 }

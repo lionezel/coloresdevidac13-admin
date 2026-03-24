@@ -9,34 +9,24 @@ import {
   CardContent,
   useTheme,
   useMediaQuery,
+  Chip,
 } from "@mui/material";
 import { GridColDef, GridRowParams } from "@mui/x-data-grid";
 import { PremiumDataGrid } from "../components/PremiumDataGrid";
 import { useCollection } from "../hooks/useCollection";
-import ItemDialog from "../components/ItemDialog";
+import UserDialog from "../components/UserDialog";
 import { useParams } from "react-router-dom";
 import { Timestamp } from "firebase/firestore";
-
-export type Category = {
-  id?: string;
-  name: string;
-  description?: string;
-  route: string;
-  colorbg: string;
-  image?: string;
-  email?: string;
-  role?: string;
-  createdAt?: Timestamp;
-  perfil?: string;
-};
+import { Users } from "../interfaces/Users";
+import { createAuthUser } from "../firebase/user";
 
 export default function UsersPage() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
-  const { data, createItem, updateItem, deleteItem } =
-    useCollection<Category>(restaurantId!, "users");
+  const { data, createItem, updateItem, setItem, deleteItem } =
+    useCollection<Users>(restaurantId!, "users");
 
   const formatDate = (date?: Timestamp) => {
     if (!date) return "-";
@@ -48,35 +38,54 @@ export default function UsersPage() {
   };
 
   const [open, setOpen] = useState(false);
-  const [current, setCurrent] = useState<Category | null>(null);
+  const [current, setCurrent] = useState<Partial<Users> | null>(null);
 
   const columns: GridColDef[] = [
     {
       field: "perfil",
       headerName: "Perfil",
-      width: 90,
+      width: 80,
       renderCell: (params) => (
         <Avatar
-          src={params.value}
+          src={params.value as string}
           variant="rounded"
-          sx={{ width: 45, height: 45 }}
+          sx={{ width: 40, height: 40 }}
         />
       ),
     },
+    { field: "name", headerName: "Nombre", flex: 1.5 },
     { field: "email", headerName: "Email", flex: 2 },
-    { field: "role", headerName: "Rol", flex: 1 },
-    { field: "createdAt", headerName: "Creación", flex: 1 },
+    { 
+      field: "role", 
+      headerName: "Rol", 
+      flex: 1,
+      renderCell: (p) => (
+        <Chip 
+          label={(p.value as string)?.toUpperCase() || "SIN ROL"} 
+          color={p.value === "admin" ? "primary" : "default"}
+          size="small"
+          variant="outlined"
+        />
+      )
+    },
+    { 
+        field: "createdAt", 
+        headerName: "Registro", 
+        flex: 1,
+        valueGetter: (params) => formatDate(params as unknown as Timestamp)
+    },
     {
       field: "actions",
       headerName: "Acciones",
-      width: 150,
+      width: 160,
       sortable: false,
       renderCell: (params) => (
         <Stack direction="row" spacing={1}>
           <Button
             size="small"
+            variant="outlined"
             onClick={() => {
-              setCurrent(params.row);
+              setCurrent(params.row as Users);
               setOpen(true);
             }}
           >
@@ -85,7 +94,13 @@ export default function UsersPage() {
           <Button
             size="small"
             color="error"
-            onClick={() => deleteItem(params.row.id)}
+            variant="outlined"
+            onClick={() => {
+                const row = params.row as Users;
+                if (window.confirm("¿Estás seguro de eliminar este usuario?")) {
+                    deleteItem(row.uid!);
+                }
+            }}
           >
             Eliminar
           </Button>
@@ -95,23 +110,25 @@ export default function UsersPage() {
   ];
 
   return (
-    <>
+    <Box p={isMobile ? 1 : 3}>
       {/* HEADER */}
       <Stack
         direction={isMobile ? "column" : "row"}
         justifyContent="space-between"
         alignItems={isMobile ? "stretch" : "center"}
         spacing={2}
-        mb={2}
+        mb={3}
       >
-        <Typography variant="h5">👥 Usuarios</Typography>
+        <Typography variant="h4" fontWeight={700}>👥 Usuarios</Typography>
         <Button
           variant="contained"
+          startIcon={<span>➕</span>}
           fullWidth={isMobile}
           onClick={() => {
             setCurrent(null);
             setOpen(true);
           }}
+          sx={{ borderRadius: 2, px: 4, py: 1 }}
         >
           Agregar usuario
         </Button>
@@ -119,13 +136,14 @@ export default function UsersPage() {
 
       {/* DESKTOP TABLE */}
       {!isMobile && (
-        <Box sx={{ height: 520, width: "100%" }}>
+        <Box sx={{ height: 600, width: "100%" }}>
           <PremiumDataGrid
             rows={data}
             columns={columns}
-            pageSizeOptions={[5, 10]}
+            getRowId={(row) => row.uid || row.id}
+            pageSizeOptions={[10, 20]}
             onRowDoubleClick={(p: GridRowParams) => {
-              setCurrent(p.row as Category);
+              setCurrent(p.row as Users);
               setOpen(true);
             }}
           />
@@ -136,26 +154,30 @@ export default function UsersPage() {
       {isMobile && (
         <Stack spacing={2}>
           {data.map((user) => (
-            <Card key={user.id} variant="outlined">
+            <Card key={user.uid || (user as any).id} variant="outlined" sx={{ borderRadius: 2 }}>
               <CardContent>
                 <Stack direction="row" spacing={2} alignItems="center">
-                  <Avatar src={user.perfil} sx={{ width: 56, height: 56 }} />
+                  <Avatar src={user.perfil} sx={{ width: 56, height: 56, borderRadius: 2 }} />
                   <Box flex={1}>
-                    <Typography fontWeight={600}>
+                    <Typography fontWeight={700}>
+                      {user.name || "Sin nombre"}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
                       {user.email}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Rol: {user.role}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatDate(user.createdAt)}
-                    </Typography>
+                    <Stack direction="row" spacing={1} mt={1} alignItems="center">
+                        <Chip label={user.role} size="small" color="primary" variant="outlined" />
+                        <Typography variant="caption" color="text.secondary">
+                            {formatDate(user.createdAt)}
+                        </Typography>
+                    </Stack>
                   </Box>
                 </Stack>
 
                 <Stack direction="row" spacing={1} mt={2}>
                   <Button
                     fullWidth
+                    variant="outlined"
                     size="small"
                     onClick={() => {
                       setCurrent(user);
@@ -166,12 +188,13 @@ export default function UsersPage() {
                   </Button>
                   <Button
                     fullWidth
+                    variant="outlined"
                     size="small"
                     color="error"
-                    disabled={!user.id}
                     onClick={() => {
-                      if (!user.id) return;
-                      deleteItem(user.id);
+                        if (window.confirm("¿Estás seguro de eliminar este usuario?")) {
+                            deleteItem(user.uid || (user as any).id!);
+                        }
                     }}
                   >
                     Eliminar
@@ -184,31 +207,41 @@ export default function UsersPage() {
       )}
 
       {/* MODAL */}
-      <ItemDialog<Category>
+      <UserDialog
         open={open}
         onClose={() => setOpen(false)}
-        initial={
-          current || {
-            name: "",
-            description: "",
-            route: "",
-            colorbg: "",
-            image: "",
-          }
-        }
-        fields={[
-          { key: "name", label: "Nombre" },
-          { key: "description", label: "Descripción" },
-          { key: "route", label: "Ruta" },
-          { key: "colorbg", label: "Color de fondo", type: "color" },
-          { key: "image", label: "Imagen" },
-        ]}
+        initial={current}
         onSubmit={async (values) => {
-          if (current?.id) await updateItem(current.id, values);
-          else await createItem(values);
-          setOpen(false);
+          try {
+            const id = values.uid || (values as any).id;
+            if (id) {
+                // Actualizar usuario existente
+                await updateItem(id, values);
+            } else {
+                // Crear nuevo usuario en Firebase Auth primero
+                const password = (values as any).password;
+                if (!password || password.length < 6) {
+                    alert("La contraseña debe tener al menos 6 caracteres");
+                    return;
+                }
+
+                const uid = await createAuthUser(values.email!, password);
+                
+                // Crear documento en Firestore con el mismo UID (usamos setItem)
+                const { password: _, ...firestoreData } = values as any;
+                await setItem(uid, {
+                    ...firestoreData,
+                    uid: uid,
+                    createdAt: Timestamp.now()
+                });
+            }
+            setOpen(false);
+          } catch (error: any) {
+            console.error(error);
+            alert("Error al crear/actualizar usuario: " + error.message);
+          }
         }}
       />
-    </>
+    </Box>
   );
 }
