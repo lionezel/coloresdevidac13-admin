@@ -44,24 +44,24 @@ import { Timestamp } from "firebase/firestore";
    HELPERS
 ========================= */
 const toDate = (order: any): Date => {
-  if (!order) return new Date();
-  const dateValue = order.dateSuccess || order.date || order.createdAt || order.timestamp;
-  if (!dateValue) return new Date();
-  
-  let dateObj: Date;
-  if (typeof dateValue.toDate === "function") {
-    dateObj = dateValue.toDate();
-  } else if (dateValue instanceof Date) {
-    dateObj = dateValue;
-  } else if (typeof dateValue === "number") {
-    dateObj = new Date(dateValue);
-  } else if (dateValue && typeof dateValue === "object" && (dateValue.seconds !== undefined || dateValue._seconds !== undefined)) {
-    const s = dateValue.seconds !== undefined ? dateValue.seconds : dateValue._seconds;
-    dateObj = new Date(s * 1000);
-  } else {
-    dateObj = new Date(dateValue);
-  }
-  return isNaN(dateObj.getTime()) ? new Date() : dateObj;
+    if (!order) return new Date();
+    const dateValue = order.dateSuccess || order.date || order.createdAt || order.timestamp;
+    if (!dateValue) return new Date();
+
+    let dateObj: Date;
+    if (typeof dateValue.toDate === "function") {
+        dateObj = dateValue.toDate();
+    } else if (dateValue instanceof Date) {
+        dateObj = dateValue;
+    } else if (typeof dateValue === "number") {
+        dateObj = new Date(dateValue);
+    } else if (dateValue && typeof dateValue === "object" && (dateValue.seconds !== undefined || dateValue._seconds !== undefined)) {
+        const s = dateValue.seconds !== undefined ? dateValue.seconds : dateValue._seconds;
+        dateObj = new Date(s * 1000);
+    } else {
+        dateObj = new Date(dateValue);
+    }
+    return isNaN(dateObj.getTime()) ? new Date() : dateObj;
 };
 
 /* =========================
@@ -70,7 +70,7 @@ const toDate = (order: any): Date => {
 export default function CashClosingPage() {
     const { restaurantId } = useParams<{ restaurantId: string }>();
     const { userDoc } = useAuth();
-    
+
     // Colecciones
     const { data: orders = [] } = useCollection<Order>(restaurantId!, "orderssuccess");
     const { data: closings = [], createItem: saveClosing } = useCollection<CashClosing>(restaurantId!, "cashclosings");
@@ -91,8 +91,8 @@ export default function CashClosingPage() {
 
     const totalFromBreakdown = useMemo(() => {
         return (denominations.coins100 * 100) + (denominations.coins200 * 200) + (denominations.coins500 * 500) + (denominations.coins1000 * 1000) +
-               (denominations.bills2000 * 2000) + (denominations.bills5000 * 5000) + (denominations.bills10000 * 10000) + 
-               (denominations.bills20000 * 20000) + (denominations.bills50000 * 50000) + (denominations.bills100000 * 100000);
+            (denominations.bills2000 * 2000) + (denominations.bills5000 * 5000) + (denominations.bills10000 * 10000) +
+            (denominations.bills20000 * 20000) + (denominations.bills50000 * 50000) + (denominations.bills100000 * 100000);
     }, [denominations]);
 
     const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + e.amount, 0), [expenses]);
@@ -127,8 +127,7 @@ export default function CashClosingPage() {
             const total = Number(order.total || 0);
             const guiaAmount = Number(order.guiaDiscount || 0);
             
-            totals.totalSales += total;
-            totals.totalGross += (total + guiaAmount);
+            totals.totalGross += total;
             totals.totalGuiaDiscount += guiaAmount;
 
             if (pm.includes("efectivo") || pm === "cash") {
@@ -142,12 +141,15 @@ export default function CashClosingPage() {
             }
         });
 
+        // Venta Neta = (Efectivo + Tarjeta + Transferencia) - Descuento Guía
+        totals.totalSales = (totals.efectivo + totals.tarjeta + totals.transferencia) - totals.totalGuiaDiscount;
+
         return totals;
     }, [todayOrders]);
 
-    const expectedCash = useMemo(() => 
-        summary.efectivo + Number(openingBalance) - totalExpenses, 
-    [summary.efectivo, openingBalance, totalExpenses]);
+    const expectedCash = useMemo(() =>
+        summary.efectivo + Number(openingBalance) - totalExpenses,
+        [summary.efectivo, openingBalance, totalExpenses]);
 
     // --- MÉTRICAS DE NEGOCIO (Últimos 30 días) ---
     const businessMetrics = useMemo(() => {
@@ -174,7 +176,7 @@ export default function CashClosingPage() {
 
     const handleSaveClosing = async () => {
         if (!restaurantId || !userDoc) return;
-        
+
         setLoading(true);
         try {
             const closingData: Omit<CashClosing, "id"> = {
@@ -231,7 +233,7 @@ export default function CashClosingPage() {
                         Resumen diario de ventas y conciliación de efectivo.
                     </Typography>
                 </Box>
-                <Chip 
+                <Chip
                     label={new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     icon={<CalendarMonth />}
                     sx={{ fontWeight: 700, px: 1, height: 40, borderRadius: 2, bgcolor: "#fff", border: "1px solid #e2e8f0" }}
@@ -317,7 +319,7 @@ export default function CashClosingPage() {
                             <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <LocalAtm color="error" /> Pagos y Salidas (Egresos)
                             </Typography>
-                            
+
                             <Stack spacing={2} mb={3}>
                                 <Stack direction="row" spacing={2}>
                                     <TextField
@@ -336,8 +338,8 @@ export default function CashClosingPage() {
                                         value={newExpense.amount === 0 ? "" : newExpense.amount}
                                         onChange={(e) => setNewExpense({ ...newExpense, amount: Number(e.target.value) })}
                                     />
-                                    <Button 
-                                        variant="contained" 
+                                    <Button
+                                        variant="contained"
                                         color="error"
                                         onClick={() => {
                                             if (newExpense.description && newExpense.amount > 0) {
@@ -398,33 +400,33 @@ export default function CashClosingPage() {
                             <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <History color="primary" /> Desglose de Efectivo
                             </Typography>
-                            
+
                             <Grid container spacing={2}>
                                 {/* BILLETES */}
                                 <Grid size={{ xs: 12 }}><Typography variant="caption" fontWeight={900} color="text.secondary">BILLETES</Typography></Grid>
                                 {[100000, 50000, 20000, 10000, 5000, 2000].map(val => (
                                     <Grid size={{ xs: 6 }} key={val}>
-                                        <DenominationInput 
-                                            label={`$${val / 1000}k`} 
-                                            value={denominations[`bills${val}` as keyof typeof denominations]} 
-                                            onChange={(n) => setDenominations({...denominations, [`bills${val}`]: n})} 
+                                        <DenominationInput
+                                            label={`$${val / 1000}k`}
+                                            value={denominations[`bills${val}` as keyof typeof denominations]}
+                                            onChange={(n) => setDenominations({ ...denominations, [`bills${val}`]: n })}
                                         />
                                     </Grid>
                                 ))}
-                                
+
                                 {/* MONEDAS */}
                                 <Grid size={{ xs: 12 }} sx={{ mt: 1 }}><Typography variant="caption" fontWeight={900} color="text.secondary">MONEDAS</Typography></Grid>
                                 {[1000, 500, 200, 100].map(val => (
                                     <Grid size={{ xs: 6 }} key={val}>
-                                        <DenominationInput 
-                                            label={`$${val}`} 
-                                            value={denominations[`coins${val}` as keyof typeof denominations]} 
-                                            onChange={(n) => setDenominations({...denominations, [`coins${val}`]: n})} 
+                                        <DenominationInput
+                                            label={`$${val}`}
+                                            value={denominations[`coins${val}` as keyof typeof denominations]}
+                                            onChange={(n) => setDenominations({ ...denominations, [`coins${val}`]: n })}
                                         />
                                     </Grid>
                                 ))}
                             </Grid>
-                            
+
                             <Box sx={{ mt: 3, p: 2, bgcolor: "#f0fdf4", borderRadius: 3, textAlign: 'center' }}>
                                 <Typography variant="caption" fontWeight={700} color="success.main" display="block">TOTAL EFECTIVO CONTADO</Typography>
                                 <Typography variant="h5" fontWeight={900} color="success.dark">{formatCOP(totalFromBreakdown)}</Typography>
@@ -437,7 +439,7 @@ export default function CashClosingPage() {
                             <Typography variant="h6" fontWeight={800} mb={3}>
                                 Realizar Cierre
                             </Typography>
-                            
+
                             <Stack spacing={3}>
                                 <TextField
                                     label="Base de Efectivo (Apertura)"
@@ -486,9 +488,9 @@ export default function CashClosingPage() {
                                             * Teórico = Base + Ventas Efectivo - Egresos
                                         </Typography>
                                     </Stack>
-                                    
+
                                     <Divider sx={{ my: 1.5 }} />
-                                    
+
                                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                                         <Typography variant="subtitle1" fontWeight={800}>Diferencia:</Typography>
                                         <Box sx={{ textAlign: 'right' }}>
@@ -570,45 +572,45 @@ export default function CashClosingPage() {
                                                 return dB.getTime() - dA.getTime();
                                             })
                                             .map((c) => (
-                                            <TableRow key={c.id} hover>
-                                                <TableCell>
-                                                    <Typography variant="body2" fontWeight={700}>
-                                                        {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : c.date}
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <Avatar sx={{ width: 24, height: 24, fontSize: "0.75rem", bgcolor: "secondary.main" }}>
-                                                            {c.closedBy?.name?.charAt(0)}
-                                                        </Avatar>
-                                                        <Typography variant="body2" fontWeight={600}>{c.closedBy?.name}</Typography>
-                                                    </Stack>
-                                                </TableCell>
-                                                <TableCell align="right">{formatCOP(c.openingBalance)}</TableCell>
-                                                <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCOP(c.totalSales)}</TableCell>
-                                                <TableCell align="right" sx={{ fontWeight: 1000, color: "primary.main" }}>
-                                                    {formatCOP(c.actualCash || (c.totals?.efectivo || 0) + (c.openingBalance || 0))}
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <Typography variant="body2" fontWeight={800} color={(c.difference || 0) === 0 ? "text.secondary" : (c.difference || 0) > 0 ? "success.main" : "error.main"}>
-                                                        {formatCOP(c.difference || 0)}
-                                                    </Typography>
-                                                    {c.difference !== 0 && (
-                                                        <Typography variant="caption" fontWeight={900} color={(c.difference || 0) > 0 ? "success.main" : "error.main"} sx={{ fontSize: '0.6rem' }}>
-                                                            {(c.difference || 0) > 0 ? "SOBRANTE" : "FALTANTE"}
+                                                <TableRow key={c.id} hover>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight={700}>
+                                                            {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : c.date}
                                                         </Typography>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                                        {c.notes || "—"}
-                                                    </Typography>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Stack direction="row" spacing={1} alignItems="center">
+                                                            <Avatar sx={{ width: 24, height: 24, fontSize: "0.75rem", bgcolor: "secondary.main" }}>
+                                                                {c.closedBy?.name?.charAt(0)}
+                                                            </Avatar>
+                                                            <Typography variant="body2" fontWeight={600}>{c.closedBy?.name}</Typography>
+                                                        </Stack>
+                                                    </TableCell>
+                                                    <TableCell align="right">{formatCOP(c.openingBalance)}</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCOP(c.totalSales)}</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 1000, color: "primary.main" }}>
+                                                        {formatCOP(c.actualCash || (c.totals?.efectivo || 0) + (c.openingBalance || 0))}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        <Typography variant="body2" fontWeight={800} color={(c.difference || 0) === 0 ? "text.secondary" : (c.difference || 0) > 0 ? "success.main" : "error.main"}>
+                                                            {formatCOP(c.difference || 0)}
+                                                        </Typography>
+                                                        {c.difference !== 0 && (
+                                                            <Typography variant="caption" fontWeight={900} color={(c.difference || 0) > 0 ? "success.main" : "error.main"} sx={{ fontSize: '0.6rem' }}>
+                                                                {(c.difference || 0) > 0 ? "SOBRANTE" : "FALTANTE"}
+                                                            </Typography>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                                            {c.notes || "—"}
+                                                        </Typography>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
                                         {closings.length === 0 && (
                                             <TableRow>
                                                 <TableCell colSpan={6} align="center" sx={{ py: 4, color: "text.disabled" }}>
@@ -630,38 +632,38 @@ export default function CashClosingPage() {
                             <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <History color="primary" /> Rendimiento del Negocio (Últimos 30 días)
                             </Typography>
-                            
+
                             <Grid container spacing={3}>
                                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <SummaryCard 
-                                        title="Ventas Totales (Netas)" 
-                                        value={businessMetrics.totalNetSales} 
-                                        icon={<AttachMoney />} 
-                                        color="#10b981" 
+                                    <SummaryCard
+                                        title="Ventas Totales (Netas)"
+                                        value={businessMetrics.totalNetSales}
+                                        icon={<AttachMoney />}
+                                        color="#10b981"
                                     />
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <SummaryCard 
-                                        title="Total Descuentos Guía" 
-                                        value={businessMetrics.totalGuiaDiscount} 
-                                        icon={<LocalAtm />} 
-                                        color="#ed6c02" 
+                                    <SummaryCard
+                                        title="Total Descuentos Guía"
+                                        value={businessMetrics.totalGuiaDiscount}
+                                        icon={<LocalAtm />}
+                                        color="#ed6c02"
                                     />
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <SummaryCard 
-                                        title="Total Egresos" 
-                                        value={businessMetrics.totalExpenses} 
-                                        icon={<LocalAtm />} 
-                                        color="#ef4444" 
+                                    <SummaryCard
+                                        title="Total Egresos"
+                                        value={businessMetrics.totalExpenses}
+                                        icon={<LocalAtm />}
+                                        color="#ef4444"
                                     />
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <SummaryCard 
-                                        title="Diferencia Acumulada" 
-                                        value={businessMetrics.totalDifference} 
-                                        icon={<History />} 
-                                        color={businessMetrics.totalDifference >= 0 ? "#10b981" : "#ef4444"} 
+                                    <SummaryCard
+                                        title="Diferencia Acumulada"
+                                        value={businessMetrics.totalDifference}
+                                        icon={<History />}
+                                        color={businessMetrics.totalDifference >= 0 ? "#10b981" : "#ef4444"}
                                     />
                                 </Grid>
                             </Grid>
@@ -678,9 +680,9 @@ export default function CashClosingPage() {
 ========================= */
 function SummaryCard({ title, value, icon, color, isTotal }: { title: string; value: number; icon: any; color: string; isTotal?: boolean }) {
     return (
-        <Card sx={{ 
-            borderRadius: 4, 
-            height: "100%", 
+        <Card sx={{
+            borderRadius: 4,
+            height: "100%",
             border: isTotal ? `2px solid ${color}` : "1px solid #e2e8f0",
             bgcolor: isTotal ? `${color}05` : "#fff",
             transition: "0.2s",
