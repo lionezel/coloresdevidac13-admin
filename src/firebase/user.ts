@@ -15,6 +15,12 @@ export const createUserIfNotExists = async (user: User) => {
             createdAt: serverTimestamp(),
             role: isAdmin ? "admin" : "user",
             isAdmin: isAdmin,
+            permissions: {
+                allowedPages: ["billing"], // Allow billing by default for now, or keep empty []
+                canCreate: true,
+                canEdit: true,
+                canDelete: false,
+            }
         });
     }
 };

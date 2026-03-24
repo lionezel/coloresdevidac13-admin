@@ -62,20 +62,22 @@ export const ProtectedRoute = ({
 
         // Si no es admin y no está en los roles permitidos, verificamos si tiene permiso granular por página
         const pathParts = window.location.pathname.split("/").filter(p => p);
+        // La estructura es /:restId/:page -> así que el segundo elemento es la página
         const currentPageId = pathParts.length >= 2 ? pathParts[1] : null;
 
         if (currentPageId && userDoc?.permissions?.allowedPages?.includes(currentPageId)) {
+            console.log("Acceso concedido por permiso granular a:", currentPageId);
             return children ? <>{children}</> : <Outlet />;
         }
 
-        // Fallback para billing
-        if (window.location.pathname.includes("billing") && userDoc?.permissions?.allowedPages?.includes("billing")) {
+        // Caso especial para billing si está en la URL pero no exactamente en la posición 1
+        if (window.location.pathname.includes("/billing") && userDoc?.permissions?.allowedPages?.includes("billing")) {
             return children ? <>{children}</> : <Outlet />;
         }
 
         // Si tiene allowedRoles o estamos en una subpágina de restaurante y no se permitió arriba, redirigir
         if (allowedRoles || (pathParts.length >= 2)) {
-             console.warn("Acceso denegado a:", window.location.pathname);
+             console.warn(`Acceso denegado a: ${window.location.pathname}. El rol '${userDoc?.role}' no tiene permiso.`);
              return <Navigate to="/" replace />;
         }
     }

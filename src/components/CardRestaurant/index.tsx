@@ -48,9 +48,24 @@ export const RestaurantCard = ({
   const hasAdminRights = userDoc?.isAdmin === true || userRole === "admin";
 
   const handleCardClick = (restId: string) => {
-    if (isCajero) {
+    // Si es admin, siempre al dashboard
+    if (hasAdminRights) {
+      navigate(`/${restId}/dashboard`);
+      return;
+    }
+
+    // Verificamos permisos granulares
+    const allowedPages = userDoc?.permissions?.allowedPages || [];
+    
+    if (allowedPages.includes("billing") || isCajero) {
       navigate(`/${restId}/billing`);
+    } else if (allowedPages.includes("dashboard")) {
+      navigate(`/${restId}/dashboard`);
+    } else if (allowedPages.length > 0) {
+      // Si tiene acceso a alguna otra página, ir a la primera
+      navigate(`/${restId}/${allowedPages[0]}`);
     } else {
+      // Fallback por defecto
       navigate(`/${restId}/dashboard`);
     }
   };

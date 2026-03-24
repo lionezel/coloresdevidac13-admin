@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { auth, db } from "../firebase/config";
 import { AuthContext } from "./AuthContext";
 import { createUserIfNotExists } from "../firebase/user";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collectionGroup, query, where, getDocs, setDoc } from "firebase/firestore";
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<any>(null);
@@ -14,14 +14,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setLoading(true);
-        await createUserIfNotExists(firebaseUser);
 
         const userRef = doc(db, "users", firebaseUser.uid);
-        const snap = await getDoc(userRef);
+        let snap = await getDoc(userRef);
+        let data = snap.exists() ? snap.data() : null;
+
+        if (!data) {
+          // Si no está en la colección global, buscamos en todas las subcolecciones de restaurantes
+          console.log("User not found in global 'users', searching in subcollections...");
+          const q = query(collectionGroup(db, "users"), where("uid", "==", firebaseUser.uid));
+          const groupSnap = await getDocs(q);
+          
+          if (!groupSnap.empty) {
+            data = groupSnap.docs[0].data();
+            console.log("User found in subcollection:", data);
+            // Sincronizar con el documento global para futuros logins rápidos
+            await setDoc(userRef, data);
+          } else {
+            // Si REALMENTE no existe en ningún lado, crear por primera vez
+            await createUserIfNotExists(firebaseUser);
+            snap = await getDoc(userRef);
+            data = snap.exists() ? snap.data() : null;
+          }
+        }
 
         setUser(firebaseUser);
-        if (snap.exists()) {
-          const data = snap.data();
+        if (data) {
           // 🔥 Fix: Forzar admin para el usuario actual si no tiene el rol
           if (firebaseUser.uid === "THtaTpKF7mOcSS5VbJtGtkZu9z82" && !data.isAdmin) {
             console.log("PROMOTING UID TO ADMIN:", firebaseUser.uid);
@@ -31,7 +49,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             console.log("PROMOTION SUCCESSFUL");
           }
           console.log("AuthProvider - final userDoc:", data);
-          setUserDoc({ id: snap.id, ...data });
+          setUserDoc({ id: firebaseUser.uid, ...data });
         } else {
           setUserDoc(null);
         }

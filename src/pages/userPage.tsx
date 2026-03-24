@@ -16,9 +16,10 @@ import { PremiumDataGrid } from "../components/PremiumDataGrid";
 import { useCollection } from "../hooks/useCollection";
 import UserDialog from "../components/UserDialog";
 import { useParams } from "react-router-dom";
-import { Timestamp } from "firebase/firestore";
+import { Timestamp, doc, updateDoc, setDoc } from "firebase/firestore";
 import { Users } from "../interfaces/Users";
 import { createAuthUser } from "../firebase/user";
+import { db } from "../firebase/config";
 
 export default function UsersPage() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -215,8 +216,10 @@ export default function UsersPage() {
           try {
             const id = values.uid || (values as any).id;
             if (id) {
-                // Actualizar usuario existente
+                // Actualizar usuario existente en ambos lugares
                 await updateItem(id, values);
+                const globalUserRef = doc(db, "users", id);
+                await updateDoc(globalUserRef, values as any);
             } else {
                 // Crear nuevo usuario en Firebase Auth primero
                 const password = (values as any).password;
@@ -229,11 +232,18 @@ export default function UsersPage() {
                 
                 // Crear documento en Firestore con el mismo UID (usamos setItem)
                 const { password: _, ...firestoreData } = values as any;
-                await setItem(uid, {
+                const finalData = {
                     ...firestoreData,
                     uid: uid,
                     createdAt: Timestamp.now()
-                });
+                };
+
+                // 1. Guardar en la subcolección del restaurante
+                await setItem(uid, finalData);
+
+                // 2. Sincronizar con la colección global de usuarios para el login
+                const globalUserRef = doc(db, "users", uid);
+                await setDoc(globalUserRef, finalData);
             }
             setOpen(false);
           } catch (error: any) {
