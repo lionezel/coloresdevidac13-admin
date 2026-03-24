@@ -14,6 +14,7 @@ export interface OrderProduct {
     image: string;
     additions?: OrderAddition[];
     total?: number;
+    completed?: boolean;
 }
 
 export type OrderStatus =
@@ -21,6 +22,7 @@ export type OrderStatus =
     | "enProceso"
     | "enCamino"
     | "porCobrar"
+    | "listo / caja"
     | "completada"
     | "cancelada";
 
@@ -42,4 +44,9 @@ export interface Order {
     customerId?: string;
     customerName?: string;
     shippingCost?: number;
+    discountAmount?: number;
+    discountType?: "total" | "producto";
+    discountMode?: "percentage" | "fixed";
+    discountValue?: number;
+    discountProductId?: string;
 }

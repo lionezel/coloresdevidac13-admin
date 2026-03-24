@@ -45,10 +45,10 @@ export default function BillingPage() {
 
     const [orderToCheckout, setOrderToCheckout] = useState<Order | null>(null);
 
-    // Filtrar SOLAMENTE las que están "porCobrar"
+    // Filtrar SOLAMENTE las que están "porCobrar" o "listo / caja"
     const ordersToBill = useMemo(() => {
         return allOrders
-            .filter((o) => o.state === "porCobrar")
+            .filter((o) => o.state === "porCobrar" || o.state === "listo / caja")
             .sort((a, b) => {
                 const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
                 const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);

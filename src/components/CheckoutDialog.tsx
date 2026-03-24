@@ -43,6 +43,11 @@ export default function CheckoutDialog({
     const [tipPercentage, setTipPercentage] = useState<number>(0);
     const [tipFixedAmount, setTipFixedAmount] = useState<number | "">("");
 
+    const [discountType, setDiscountType] = useState<"none" | "total" | "producto">("none");
+    const [discountMode, setDiscountMode] = useState<"percentage" | "fixed">("percentage");
+    const [discountValue, setDiscountValue] = useState<number | "">("");
+    const [discountProductIdx, setDiscountProductIdx] = useState<number | "">("");
+
     const { data: creditCustomers = [] } = useCollection<CreditCustomer>(
         restaurantId!,
         "credit_customers"
@@ -61,12 +66,35 @@ export default function CheckoutDialog({
         );
     }, [order]);
 
-    const tipAmount = useMemo(() => {
-        if (tipMode === "percentage") return Math.round(subTotal * (tipPercentage / 100));
-        return Number(tipFixedAmount) || 0;
-    }, [subTotal, tipPercentage, tipFixedAmount, tipMode]);
+    const discountAmount = useMemo(() => {
+        if (discountType === "none" || !discountValue) return 0;
+        
+        let targetAmount = subTotal;
+        
+        if (discountType === "producto") {
+            if (discountProductIdx === "") return 0;
+            const p = order?.products[Number(discountProductIdx)];
+            if (!p) return 0;
+            targetAmount = Number(p.total ?? (p.price * p.quantity));
+        }
 
-    const totalGeneral = subTotal + tipAmount;
+        let amount = 0;
+        if (discountMode === "percentage") {
+            amount = Math.round(targetAmount * (Number(discountValue) / 100));
+        } else {
+            amount = Number(discountValue);
+        }
+        
+        return Math.min(amount, targetAmount);
+    }, [discountType, discountMode, discountValue, discountProductIdx, subTotal, order]);
+
+    const tipAmount = useMemo(() => {
+        const baseForTip = subTotal - discountAmount;
+        if (tipMode === "percentage") return Math.round(baseForTip * (tipPercentage / 100));
+        return Number(tipFixedAmount) || 0;
+    }, [subTotal, discountAmount, tipPercentage, tipFixedAmount, tipMode]);
+
+    const totalGeneral = subTotal - discountAmount + tipAmount;
 
     // Sync default payment method when order changes
     React.useEffect(() => {
@@ -77,6 +105,10 @@ export default function CheckoutDialog({
         setTipPercentage(0);
         setTipFixedAmount("");
         setCashReceived("");
+        setDiscountType("none");
+        setDiscountMode("percentage");
+        setDiscountValue("");
+        setDiscountProductIdx("");
     }, [order]);
 
     // Calculate change
@@ -104,6 +136,13 @@ export default function CheckoutDialog({
             await onComplete({
                 ...order,
                 subTotal,
+                discountAmount: discountAmount > 0 ? discountAmount : undefined,
+                discountType: discountAmount > 0 ? (discountType as "total" | "producto") : undefined,
+                discountMode: discountAmount > 0 ? discountMode : undefined,
+                discountValue: discountAmount > 0 ? Number(discountValue) : undefined,
+                discountProductId: discountAmount > 0 && discountType === "producto" && discountProductIdx !== "" 
+                    ? order.products[Number(discountProductIdx)].productId 
+                    : undefined,
                 tipPercentage,
                 tipAmount,
                 total: totalGeneral
@@ -210,6 +249,91 @@ export default function CheckoutDialog({
                     )}
                 </Box>
 
+                {/* Selector de Promociones y Descuentos */}
+                <Box mb={3}>
+                    <Typography variant="subtitle2" color="text.secondary" mb={1} fontWeight={600}>
+                        Promociones y Descuentos:
+                    </Typography>
+
+                    <TextField
+                        select
+                        size="small"
+                        value={discountType}
+                        onChange={(e) => {
+                            setDiscountType(e.target.value as any);
+                            setDiscountValue("");
+                            setDiscountProductIdx("");
+                        }}
+                        fullWidth
+                        sx={{ mb: 2 }}
+                    >
+                        <MenuItem value="none">Sin descuento</MenuItem>
+                        <MenuItem value="total">Descuento al Total de la Orden</MenuItem>
+                        <MenuItem value="producto">Descuento a un Producto Específico</MenuItem>
+                    </TextField>
+
+                    {discountType !== "none" && (
+                        <Box sx={{ p: 2, bgcolor: "#f1f5f9", borderRadius: 2 }}>
+                            {discountType === "producto" && (
+                                <TextField
+                                    select
+                                    label="Seleccionar Producto"
+                                    size="small"
+                                    value={discountProductIdx}
+                                    onChange={(e) => setDiscountProductIdx(e.target.value as any)}
+                                    fullWidth
+                                    sx={{ mb: 2, bgcolor: "#fff" }}
+                                >
+                                    {order.products.map((p, idx) => (
+                                        <MenuItem key={idx} value={idx}>
+                                            {p.quantity}x {p.productName} (${Number(p.total ?? (p.price * p.quantity)).toLocaleString()})
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            )}
+
+                            <Stack direction="row" spacing={1} mb={2}>
+                                <Button 
+                                    variant={discountMode === "percentage" ? "contained" : "outlined"} 
+                                    size="small" 
+                                    onClick={() => setDiscountMode("percentage")}
+                                    sx={{ borderRadius: 2 }}
+                                    color="secondary"
+                                >
+                                    Porcentaje (%)
+                                </Button>
+                                <Button 
+                                    variant={discountMode === "fixed" ? "contained" : "outlined"} 
+                                    size="small" 
+                                    onClick={() => setDiscountMode("fixed")}
+                                    sx={{ borderRadius: 2 }}
+                                    color="secondary"
+                                >
+                                    Monto Fijo ($)
+                                </Button>
+                            </Stack>
+
+                            <TextField
+                                size="small"
+                                type="number"
+                                placeholder={discountMode === "percentage" ? "Ej. 10" : "Ej. 5000"}
+                                value={discountValue}
+                                onChange={(e) => {
+                                    const val = Number(e.target.value);
+                                    setDiscountValue(val >= 0 ? val : "");
+                                }}
+                                fullWidth
+                                sx={{ bgcolor: "#fff" }}
+                                InputProps={{
+                                    endAdornment: discountMode === "percentage" ? <Typography variant="caption" sx={{ ml: 0.5 }}>%</Typography> : null,
+                                    startAdornment: discountMode === "fixed" ? <Typography variant="caption" sx={{ mr: 1, fontWeight: 800 }}>$</Typography> : null,
+                                    sx: { borderRadius: 2 }
+                                }}
+                            />
+                        </Box>
+                    )}
+                </Box>
+
                 {/* Resumen de Total */}
                 <Box
                     sx={{
@@ -225,6 +349,16 @@ export default function CheckoutDialog({
                             <Typography color="text.secondary" variant="body2" fontWeight={600}>Subtotal ({order.products.length} productos)</Typography>
                             <Typography fontWeight={700} variant="body2">${subTotal.toLocaleString()}</Typography>
                         </Stack>
+                        
+                        {discountAmount > 0 && (
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                <Typography color="text.secondary" variant="body2" fontWeight={600}>
+                                    Descuento {discountMode === "percentage" && `(${discountValue}%)`} {discountType === "producto" && `- Prod`}
+                                </Typography>
+                                <Typography fontWeight={800} variant="body2" color="error.main">- ${discountAmount.toLocaleString()}</Typography>
+                            </Stack>
+                        )}
+
                         {tipAmount > 0 && (
                             <Stack direction="row" justifyContent="space-between" alignItems="center">
                                 <Typography color="text.secondary" variant="body2" fontWeight={600}>

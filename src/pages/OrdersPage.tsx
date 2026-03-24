@@ -34,6 +34,7 @@ import { useCollection } from "../hooks/useCollection";
 import { differenceInMinutes } from "date-fns";
 import { useParams } from "react-router-dom";
 import { Order, OrderStatus } from "../interfaces/Order";
+import { Product } from "../interfaces/product";
 
 /* =======================
    🎨 Configuración de Estados
@@ -47,6 +48,7 @@ const statusConfig: Record<
   enProceso: { label: "En Cocina", color: "primary", icon: <Restaurant fontSize="small" /> },
   enCamino: { label: "En Camino", color: "info", icon: <DeliveryDining fontSize="small" /> },
   porCobrar: { label: "Por Cobrar", color: "secondary", icon: <ShoppingBag fontSize="small" /> },
+  "listo / caja": { label: "Listo / Caja", color: "secondary", icon: <ShoppingBag fontSize="small" /> },
   completada: { label: "Completada", color: "success", icon: <CheckCircle fontSize="small" /> },
   cancelada: { label: "Cancelada", color: "error", icon: <DeleteOutline fontSize="small" /> },
 };
@@ -74,10 +76,12 @@ export default function OrdersPage() {
     updateItem,
   } = useCollection<Order>(restaurantId!, "orders");
 
+  const { data: allProducts = [] } = useCollection<Product>(restaurantId!, "products");
+
   const handleSendToCashier = async (order: Order) => {
     // La cocina marca el pedido como listo para cobrar y facturar.
     if (order.id) {
-      await updateItem(order.id, { state: "porCobrar" });
+      await updateItem(order.id, { state: "listo / caja" });
     }
   };
 
@@ -105,10 +109,10 @@ export default function OrdersPage() {
     });
 
     if (tabValue === 0) {
-      // Activas NO muestra completadas, canceladas ni "porCobrar" (A menos que queramos verlas en cocina, usualmente cocina no las ve si ya están en caja)
-      return sorted.filter(o => !["completada", "cancelada", "porCobrar"].includes(o.state));
+      // Activas NO muestra completadas, canceladas ni "porCobrar"/"listo / caja" (usualmente cocina no las ve si ya están en caja)
+      return sorted.filter(o => !["completada", "cancelada", "porCobrar", "listo / caja"].includes(o.state));
     } else {
-      return sorted.filter(o => ["completada", "cancelada", "porCobrar"].includes(o.state));
+      return sorted.filter(o => ["completada", "cancelada", "porCobrar", "listo / caja"].includes(o.state));
     }
   }, [orders, tabValue]);
 
@@ -150,7 +154,7 @@ export default function OrdersPage() {
               "& .MuiTab-root": { minHeight: 44, zIndex: 1, textTransform: "none", fontWeight: 700, px: 3, fontSize: "0.95rem", borderRadius: 2 }
             }}
           >
-            <Tab label={`Activas (${orders.filter(o => !["completada", "cancelada", "porCobrar"].includes(o.state)).length})`} />
+            <Tab label={`Activas (${orders.filter(o => !["completada", "cancelada", "porCobrar", "listo / caja"].includes(o.state)).length})`} />
             <Tab label="Caja e Historial" />
           </Tabs>
         </Paper>
@@ -185,7 +189,9 @@ export default function OrdersPage() {
             <Grid key={order.id} size={{ xs: 12, md: 6, lg: 4 }}>
               <OrderCard
                 order={order}
+                allProducts={allProducts}
                 onUpdateStatus={handleChangeStatus}
+                onUpdateOrder={updateItem}
                 onComplete={handleSendToCashier}
                 onDelete={deleteItem}
               />
@@ -201,11 +207,13 @@ export default function OrdersPage() {
    📦 Tarjeta de Orden (Refinada)
  ======================= */
 
-function OrderCard({ order, onUpdateStatus, onComplete, onDelete }: {
+function OrderCard({ order, allProducts, onUpdateStatus, onComplete, onDelete, onUpdateOrder }: {
   order: Order;
+  allProducts: Product[];
   onUpdateStatus: (id: string, s: OrderStatus) => void;
   onComplete: (o: Order) => void;
   onDelete: (id: string) => void;
+  onUpdateOrder: (id: string, updates: Partial<Order>) => Promise<void> | void;
 }) {
   const date = order.date?.toDate ? order.date.toDate() : new Date(order.date);
   const minutes = differenceInMinutes(new Date(), date);
@@ -217,6 +225,99 @@ function OrderCard({ order, onUpdateStatus, onComplete, onDelete }: {
       0
     );
   }, [order.products]);
+
+  const { foodItems, drinkItems } = useMemo(() => {
+    const food: typeof order.products = [];
+    const drinks: typeof order.products = [];
+    
+    order.products.forEach(p => {
+      const productDef = allProducts.find(prod => prod.id === p.productId);
+      const cat = productDef?.category?.toLowerCase() || "";
+      const name = p.productName.toLowerCase();
+      
+      const isDrink = cat.includes("bebida") || cat.includes("jugo") || cat.includes("gaseosa") || 
+                      cat.includes("cerveza") || cat.includes("licor") || cat.includes("trago") ||
+                      name.includes("bebida") || name.includes("jugo") || name.includes("gaseosa") || 
+                      name.includes("cerveza") || name.includes("limonada") || name.includes("agua");
+      
+      if (isDrink) {
+        drinks.push(p);
+      } else {
+        food.push(p);
+      }
+    });
+    
+    return { foodItems: food, drinkItems: drinks };
+  }, [order.products, allProducts]);
+
+  const renderProduct = (p: typeof order.products[0], idx: number) => (
+    <Box key={`${p.productId}-${idx}`}>
+      <Stack direction="row" spacing={2} alignItems="center">
+        <Box
+          sx={{
+            bgcolor: "primary.main",
+            color: "#fff",
+            minWidth: 22,
+            height: 22,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "0.75rem",
+            fontWeight: 900,
+          }}
+        >
+          {p.quantity}
+        </Box>
+
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="caption" fontWeight={800} sx={{ lineHeight: 1.1, fontSize: "0.8rem", display: 'block' }}>
+            {p.productName}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ fontSize: "0.65rem", display: 'block' }}>
+            {p.variantLabel}
+          </Typography>
+
+          {p.additions && p.additions.length > 0 && (
+            <Stack direction="row" spacing={0.5} mt={0.8} flexWrap="wrap">
+              {p.additions.map((add) => (
+                <Chip
+                  key={add.id}
+                  label={`+ ${add.name}`}
+                  size="small"
+                  sx={{
+                    height: 16,
+                    fontSize: "0.6rem",
+                    fontWeight: 700,
+                    borderColor: "success.light",
+                    color: "success.dark"
+                  }}
+                  variant="outlined"
+                />
+              ))}
+            </Stack>
+          )}
+        </Box>
+
+        <IconButton
+          onClick={(e) => {
+            e.stopPropagation();
+            const newProducts = [...order.products];
+            newProducts[idx] = { ...newProducts[idx], completed: !newProducts[idx].completed };
+            onUpdateOrder(order.id!, { products: newProducts });
+          }}
+          sx={{
+            p: 0.5,
+            border: "2px solid",
+            borderColor: p.completed ? "success.main" : "#e2e8f0",
+            bgcolor: p.completed ? "success.50" : "transparent"
+          }}
+        >
+          <CheckCircle sx={{ color: p.completed ? "success.main" : "#cbd5e1", fontSize: 22 }} />
+        </IconButton>
+      </Stack>
+    </Box>
+  );
 
   return (
     <Fade in timeout={500}>
@@ -272,20 +373,20 @@ function OrderCard({ order, onUpdateStatus, onComplete, onDelete }: {
           </Box>
         )}
 
-        <CardContent sx={{ p: 4, flexGrow: 1 }}>
+        <CardContent sx={{ p: 2.5, flexGrow: 1 }}>
           {/* CABECERA */}
           <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={3}>
             <Box>
-              <Typography variant="h5" fontWeight={900} color="text.primary" sx={{ lineHeight: 1.2, mb: 0.5 }}>
+              <Typography variant="h6" fontWeight={850} color="text.primary" sx={{ lineHeight: 1.1, mb: 0.3 }}>
                 {order.name}
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center">
                 <AccessTime sx={{ fontSize: 16, color: "text.disabled" }} />
-                <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
                   {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                 </Typography>
                 <Divider orientation="vertical" flexItem sx={{ height: 12, my: "auto" }} />
-                <Typography variant="body2" color={isDelayed ? "error.main" : "text.secondary"} fontWeight={800}>
+                <Typography variant="caption" color={isDelayed ? "error.main" : "text.secondary"} fontWeight={800}>
                   hace {minutes} min
                 </Typography>
               </Stack>
@@ -305,34 +406,13 @@ function OrderCard({ order, onUpdateStatus, onComplete, onDelete }: {
             />
           </Stack>
 
-          {/* TIPO DE ORDEN O CLIENTE */}
-          <Stack direction="row" spacing={1} mb={2}>
-            {order.name.toLowerCase().trim().startsWith("mesa") ? (
-              <Chip
-                icon={<Restaurant fontSize="small" />}
-                label="Mesa"
-                size="small"
-                color="success"
-                variant="outlined"
-                sx={{ fontWeight: 700, borderRadius: 2 }}
-              />
-            ) : (
-              <Chip
-                icon={<Person fontSize="small" />}
-                label={order.customerName ? `Fiado: ${order.customerName}` : "Fiador / Otro"}
-                size="small"
-                color="info"
-                variant="outlined"
-                sx={{ fontWeight: 700, borderRadius: 2 }}
-              />
-            )}
-          </Stack>
+
 
           {/* DIRECCIÓN */}
           {order.address && (
             <Stack direction="row" spacing={1} alignItems="center" mb={3} sx={{ bgcolor: "#f8fafc", p: 1.5, borderRadius: 2 }}>
-              <DeliveryDining color="action" sx={{ fontSize: 20 }} />
-              <Typography variant="body2" color="text.secondary" fontWeight={500} noWrap>
+              <DeliveryDining color="action" sx={{ fontSize: 16 }} />
+              <Typography variant="caption" color="text.secondary" fontWeight={500} noWrap>
                 {order.address}
               </Typography>
             </Stack>
@@ -349,10 +429,10 @@ function OrderCard({ order, onUpdateStatus, onComplete, onDelete }: {
                 borderLeft: "5px solid #f59e0b"
               }}
             >
-              <Typography variant="caption" color="#92400e" fontWeight={1000} sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-                <InfoOutlined sx={{ fontSize: 16 }} /> NOTA CLIENTE
+              <Typography variant="caption" color="#92400e" fontWeight={1000} sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.2, fontSize: "0.65rem" }}>
+                <InfoOutlined sx={{ fontSize: 14 }} /> NOTA CLIENTE
               </Typography>
-              <Typography variant="body2" color="#b45309" fontWeight={500} sx={{ fontStyle: 'italic' }}>
+              <Typography variant="caption" color="#b45309" fontWeight={500} sx={{ fontStyle: 'italic', display: 'block' }}>
                 "{order.notes}"
               </Typography>
             </Box>
@@ -360,139 +440,39 @@ function OrderCard({ order, onUpdateStatus, onComplete, onDelete }: {
 
           <Divider sx={{ mb: 3, borderStyle: "dashed" }} />
 
-          {/* PRODUCTOS */}
-          <Typography variant="caption" color="text.disabled" fontWeight={900} sx={{ mb: 2, display: "block", letterSpacing: 1 }}>
-            PRODUCTOS ({order.products.length})
-          </Typography>
-
-          <Stack spacing={2.5} mb={4}>
-            {order.products.map((p, idx) => (
-              <Box key={`${p.productId}-${idx}`}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <Box sx={{ position: "relative" }}>
-                    <Avatar
-                      src={p.image}
-                      variant="rounded"
-                      sx={{ width: 50, height: 50, border: "1px solid #f1f5f9" }}
-                    />
-                    <Box
-                      sx={{
-                        position: "absolute", top: -6, left: -6,
-                        bgcolor: "primary.main", color: "#fff",
-                        width: 20, height: 20, borderRadius: "50%",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: "0.7rem", fontWeight: 1000, border: '2px solid #fff',
-                        boxShadow: 2
-                      }}
-                    >
-                      {p.quantity}
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="body2" fontWeight={800} sx={{ lineHeight: 1.2 }}>
-                      {p.productName}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
-                      {p.variantLabel}
-                    </Typography>
-
-                    {p.additions && p.additions.length > 0 && (
-                      <Stack direction="row" spacing={0.5} mt={0.8} flexWrap="wrap">
-                        {p.additions.map((add) => (
-                          <Chip
-                            key={add.id}
-                            label={`+ ${add.name}`}
-                            size="small"
-                            sx={{
-                              height: 18,
-                              fontSize: "0.65rem",
-                              fontWeight: 700,
-                              borderColor: "success.light",
-                              color: "success.dark"
-                            }}
-                            variant="outlined"
-                          />
-                        ))}
-                      </Stack>
-                    )}
-                  </Box>
-
-                  <Typography variant="body2" fontWeight={900} color="text.primary">
-                    ${Number(p.total ?? Number(p.price) * p.quantity).toLocaleString()}
-                  </Typography>
-                </Stack>
-              </Box>
-            ))}
-          </Stack>
-
-          {/* TOTAL */}
-          <Box sx={{ mt: "auto", pt: 2.5, borderTop: "2px solid #f1f5f9" }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Stack direction="row" spacing={1}>
-                <Chip
-                  label={order.paymentMethod.toUpperCase()}
-                  size="small"
-                  variant="outlined"
-                  sx={{ fontWeight: 800, fontSize: "0.7rem" }}
-                  color={order.paymentMethod === "efectivo" ? "default" : "primary"}
-                />
+          {/* PRODUCTOS SEPARADOS */}
+          {foodItems.length > 0 && (
+            <>
+              <Typography variant="caption" color="text.disabled" fontWeight={900} sx={{ mb: 1.5, display: "block", letterSpacing: 1, fontSize: "0.65rem" }}>
+                COMIDA ({foodItems.length})
+              </Typography>
+              <Stack spacing={2.5} mb={foodItems.length > 0 && drinkItems.length > 0 ? 4 : 2}>
+                {foodItems.map((p) => {
+                  const idx = order.products.indexOf(p);
+                  return renderProduct(p, idx);
+                })}
               </Stack>
-              <Box sx={{ textAlign: "right" }}>
-                <Typography variant="caption" color="text.secondary" fontWeight={700}>Total Orden</Typography>
-                <Typography variant="h5" fontWeight={900} color="primary.main">
-                  ${totalGeneral.toLocaleString()}
-                </Typography>
-              </Box>
-            </Stack>
-          </Box>
+            </>
+          )}
+
+          {drinkItems.length > 0 && (
+            <>
+              <Typography variant="caption" color="text.disabled" fontWeight={900} sx={{ mb: 1.5, display: "block", letterSpacing: 1, fontSize: "0.65rem" }}>
+                BEBIDAS ({drinkItems.length})
+              </Typography>
+              <Stack spacing={2.5} mb={2}>
+                {drinkItems.map((p) => {
+                  const idx = order.products.indexOf(p);
+                  return renderProduct(p, idx);
+                })}
+              </Stack>
+            </>
+          )}
         </CardContent>
 
         {/* ACCIONES */}
-        <CardActions sx={{ p: 3, pt: 0, flexDirection: "column", gap: 2 }}>
-          {!["completada", "cancelada"].includes(order.state) && (
-            <Box
-              sx={{
-                display: "flex",
-                width: "100%",
-                bgcolor: "#f8fafc",
-                p: 0.5,
-                borderRadius: 2.5,
-                border: "1px solid #f1f5f9"
-              }}
-            >
-              {[
-                { s: "pendiente", label: "P" },
-                { s: "enProceso", label: "COCINA" },
-                { s: "enCamino", label: "RUTA" }
-              ].map((item) => (
-                <Button
-                  key={item.s}
-                  fullWidth
-                  size="small"
-                  onClick={() => onUpdateStatus(order.id!, item.s as OrderStatus)}
-                  sx={{
-                    borderRadius: 2,
-                    py: 1,
-                    textTransform: "none",
-                    fontWeight: 800,
-                    fontSize: "0.85rem",
-                    transition: "all 0.2s",
-                    ...(order.state === item.s ? {
-                      bgcolor: "primary.main",
-                      color: "#fff",
-                      "&:hover": { bgcolor: "primary.dark" }
-                    } : {
-                      color: "text.secondary",
-                      "&:hover": { bgcolor: "#fff", color: "primary.main" }
-                    })
-                  }}
-                >
-                  {item.label}
-                </Button>
-              ))}
-            </Box>
-          )}
+        <CardActions sx={{ p: 2.5, pt: 0, flexDirection: "column", gap: 1.5 }}>
+
 
           <Stack direction="row" spacing={1.5} width="100%">
             <Button
