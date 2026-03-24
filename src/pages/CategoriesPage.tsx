@@ -14,19 +14,23 @@ import {
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import AddIcon from "@mui/icons-material/Add";
 import { GridColDef, GridRowParams } from "@mui/x-data-grid";
 import { PremiumDataGrid } from "../components/PremiumDataGrid";
-
 import { useCollection } from "../hooks/useCollection";
-import ItemDialog from "../components/ItemDialog";
+import CategoryDialog from "../components/CategoryDialog";
 
 export type Category = {
   id?: string;
   name: string;
   description?: string;
-  route: string;
-  colorbg: string;
   banner?: string;
+};
+
+const emptyCategory: Category = {
+  name: "",
+  description: "",
+  banner: "",
 };
 
 export default function CategoriesPage() {
@@ -40,45 +44,55 @@ export default function CategoriesPage() {
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState<Category | null>(null);
 
+  const handleEdit = (cat: Category) => {
+    setCurrent(cat);
+    setOpen(true);
+  };
+
+  const handleNew = () => {
+    setCurrent(null);
+    setOpen(true);
+  };
+
   const columns: GridColDef[] = [
     {
       field: "banner",
       headerName: "Banner",
-      width: 120,
+      width: 130,
       renderCell: (params) => (
         <Avatar
           src={params.value}
           variant="rounded"
-          sx={{ width: 80, height: 50 }}
+          sx={{ width: 90, height: 55, borderRadius: 2 }}
         />
       ),
     },
-    { field: "name", headerName: "Nombre", flex: 2 },
+    {
+      field: "name",
+      headerName: "Nombre",
+      flex: 2,
+      renderCell: (p) => (
+        <Typography fontWeight={700}>{p.value}</Typography>
+      ),
+    },
     { field: "description", headerName: "Descripción", flex: 3 },
-    { field: "colorbg", headerName: "Color", flex: 1 },
     {
       field: "actions",
       headerName: "Acciones",
-      width: 160,
+      width: 120,
       sortable: false,
       renderCell: (params) => (
-        <Stack direction="row" spacing={1}>
-          <Button
-            size="small"
-            onClick={() => {
-              setCurrent(params.row);
-              setOpen(true);
-            }}
-          >
-            Editar
-          </Button>
-          <Button
+        <Stack direction="row" spacing={0.5}>
+          <IconButton size="small" onClick={() => handleEdit(params.row)}>
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton
             size="small"
             color="error"
             onClick={() => deleteItem(params.row.id)}
           >
-            Eliminar
-          </Button>
+            <DeleteIcon fontSize="small" />
+          </IconButton>
         </Stack>
       ),
     },
@@ -86,66 +100,97 @@ export default function CategoriesPage() {
 
   return (
     <>
+      {/* HEADER */}
       <Stack
         direction={{ xs: "column", sm: "row" }}
         spacing={2}
         justifyContent="space-between"
-        mb={2}
+        alignItems={{ xs: "flex-start", sm: "center" }}
+        mb={3}
       >
-        <Typography variant="h5">📂 Categorías</Typography>
+        <Box>
+          <Typography
+            variant="h4"
+            fontWeight={900}
+            sx={{ letterSpacing: "-0.03em" }}
+          >
+            📂 Categorías
+          </Typography>
+          <Typography color="text.secondary" variant="body1">
+            Organiza el menú en secciones.
+          </Typography>
+        </Box>
 
         <Button
           variant="contained"
-          onClick={() => {
-            setCurrent(null);
-            setOpen(true);
-          }}
+          size="large"
+          startIcon={<AddIcon />}
+          onClick={handleNew}
+          sx={{ borderRadius: 2.5, fontWeight: 800, px: 3 }}
         >
-          Agregar categoría
+          Nueva Categoría
         </Button>
       </Stack>
 
+      {/* DESKTOP: Data Grid */}
       {!isMobile && (
         <Box sx={{ height: 520 }}>
           <PremiumDataGrid
             rows={data}
             columns={columns}
             getRowId={(row) => row.id!}
-            onRowDoubleClick={(p: GridRowParams) => {
-              setCurrent(p.row as Category);
-              setOpen(true);
-            }}
+            onRowDoubleClick={(p: GridRowParams) =>
+              handleEdit(p.row as Category)
+            }
           />
         </Box>
       )}
 
+      {/* MOBILE: Cards */}
       {isMobile && (
         <Stack spacing={2}>
           {data.map((cat) => (
-            <Card key={cat.id}>
+            <Card
+              key={cat.id}
+              elevation={0}
+              sx={{
+                borderRadius: 4,
+                border: "1px solid #e2e8f0",
+                transition: "all 0.2s ease",
+                "&:hover": { boxShadow: "0 8px 24px rgba(0,0,0,0.08)" },
+              }}
+            >
               <CardContent>
-                <Stack direction="row" spacing={2}>
+                <Stack direction="row" spacing={2} alignItems="center">
                   <Avatar
                     src={cat.banner}
                     variant="rounded"
-                    sx={{ width: 80, height: 80 }}
+                    sx={{ width: 72, height: 72, borderRadius: 3, flexShrink: 0 }}
                   />
-                  <Box flex={1}>
-                    <Typography fontWeight={600}>
+                  <Box flex={1} minWidth={0}>
+                    <Typography fontWeight={800} noWrap>
                       {cat.name}
                     </Typography>
-                    <Typography variant="body2">
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      noWrap
+                    >
                       {cat.description}
                     </Typography>
                   </Box>
-                  <IconButton
-                    onClick={() => {
-                      setCurrent(cat);
-                      setOpen(true);
-                    }}
-                  >
-                    <EditIcon />
-                  </IconButton>
+                  <Stack spacing={0.5} flexShrink={0}>
+                    <IconButton size="small" onClick={() => handleEdit(cat)}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => deleteItem(cat.id!)}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
                 </Stack>
               </CardContent>
             </Card>
@@ -153,25 +198,11 @@ export default function CategoriesPage() {
         </Stack>
       )}
 
-      <ItemDialog<Category>
+      {/* DIALOG */}
+      <CategoryDialog
         open={open}
         onClose={() => setOpen(false)}
-        initial={
-          current || {
-            name: "",
-            description: "",
-            route: "",
-            colorbg: "",
-            banner: "",
-          }
-        }
-        fields={[
-          { key: "name", label: "Nombre" },
-          { key: "description", label: "Descripción" },
-          { key: "route", label: "Ruta" },
-          { key: "colorbg", label: "Color", type: "color" },
-          { key: "banner", label: "Banner", type: "image" },
-        ]}
+        initial={current ?? emptyCategory}
         onSubmit={async (values) => {
           if (current?.id) await updateItem(current.id, values);
           else await createItem(values);
