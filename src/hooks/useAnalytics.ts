@@ -221,6 +221,9 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
     const paymentMethods = Object.entries(paymentMethodsMap).map(([name, value]) => ({ name, value }));
     const orderTypes = Object.entries(orderTypesMap).map(([name, value]) => ({ name, value }));
 
+    /* 🔹 Plan Guía Analysis */
+    const totalGuiaDiscount = filteredOrders.reduce((sum, order) => sum + Number(order.guiaDiscount || 0), 0);
+
     /* 🔹 Horas Pico */
     const peakHoursMap: Record<string, number> = {};
     filteredOrders.forEach((order) => {
@@ -250,6 +253,7 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
       growth,
       paymentRevenue,
       totalTips,
+      totalGuiaDiscount,
     };
   }, [orders, period, customDate]);
 };

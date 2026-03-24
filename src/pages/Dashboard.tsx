@@ -352,6 +352,15 @@ export default function Dashboard() {
             color="#e91e63"
           />
         </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+          <Metric
+            title="Total Descuento Guías"
+            value={formatCOP(analytics.totalGuiaDiscount)}
+            icon={<LocalAtm />}
+            color="#ed6c02"
+          />
+        </Grid>
       </Grid>
 
       {/* CHARTS */}

@@ -14,6 +14,7 @@ import {
     IconButton,
     Alert,
 } from "@mui/material";
+import { Product } from "../interfaces/product";
 import CloseIcon from "@mui/icons-material/Close";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
@@ -38,6 +39,11 @@ export default function CheckoutDialog({
     const { restaurantId } = useParams<{ restaurantId: string }>();
     const [paymentMethod, setPaymentMethod] = useState<string>("efectivo");
     const [cashReceived, setCashReceived] = useState<number | "">("");
+    
+    // Plan Guía
+    const [isGuiaPlan, setIsGuiaPlan] = useState<boolean>(false);
+
+    // Tip & Discount States
     const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
     const [tipMode, setTipMode] = useState<"percentage" | "fixed">("percentage");
     const [tipPercentage, setTipPercentage] = useState<number>(0);
@@ -48,6 +54,7 @@ export default function CheckoutDialog({
     const [discountValue, setDiscountValue] = useState<number | "">("");
     const [discountProductIdx, setDiscountProductIdx] = useState<number | "">("");
 
+    const { data: allProducts = [] } = useCollection<Product>(restaurantId!, "products");
     const { data: creditCustomers = [] } = useCollection<CreditCustomer>(
         restaurantId!,
         "credit_customers"
@@ -66,27 +73,46 @@ export default function CheckoutDialog({
         );
     }, [order]);
 
-    const discountAmount = useMemo(() => {
-        if (discountType === "none" || !discountValue) return 0;
-        
-        let targetAmount = subTotal;
-        
-        if (discountType === "producto") {
-            if (discountProductIdx === "") return 0;
-            const p = order?.products[Number(discountProductIdx)];
-            if (!p) return 0;
-            targetAmount = Number(p.total ?? (p.price * p.quantity));
-        }
+    const guiaDiscount = useMemo(() => {
+        if (!isGuiaPlan || !order) return 0;
+        let foodCount = 0;
+        order.products.forEach(p => {
+            const productDef = allProducts.find(prod => prod.id === p.productId);
+            const cat = productDef?.category?.toLowerCase() || "";
+            const name = p.productName.toLowerCase();
+            
+            const isDrink = cat.includes("bebida") || cat.includes("jugo") || cat.includes("gaseosa") || 
+                            cat.includes("cerveza") || cat.includes("licor") || cat.includes("trago") ||
+                            name.includes("bebida") || name.includes("jugo") || name.includes("gaseosa") || 
+                            name.includes("cerveza") || name.includes("limonada") || name.includes("agua");
+            
+            if (!isDrink) {
+                foodCount += Number(p.quantity || 1);
+            }
+        });
+        return foodCount * 5000;
+    }, [isGuiaPlan, order, allProducts]);
 
-        let amount = 0;
-        if (discountMode === "percentage") {
-            amount = Math.round(targetAmount * (Number(discountValue) / 100));
-        } else {
-            amount = Number(discountValue);
+    const discountAmount = useMemo(() => {
+        let baseDiscount = 0;
+        if (discountType !== "none" && discountValue) {
+            let targetAmount = subTotal;
+            if (discountType === "producto") {
+                if (discountProductIdx !== "") {
+                    const p = order?.products[Number(discountProductIdx)];
+                    if (p) targetAmount = Number(p.total ?? (p.price * p.quantity));
+                }
+            }
+            if (discountMode === "percentage") {
+                baseDiscount = Math.round(targetAmount * (Number(discountValue) / 100));
+            } else {
+                baseDiscount = Number(discountValue);
+            }
+            baseDiscount = Math.min(baseDiscount, targetAmount);
         }
         
-        return Math.min(amount, targetAmount);
-    }, [discountType, discountMode, discountValue, discountProductIdx, subTotal, order]);
+        return baseDiscount + guiaDiscount;
+    }, [discountType, discountMode, discountValue, discountProductIdx, subTotal, order, guiaDiscount]);
 
     const tipAmount = useMemo(() => {
         const baseForTip = subTotal - discountAmount;
@@ -109,6 +135,8 @@ export default function CheckoutDialog({
         setDiscountMode("percentage");
         setDiscountValue("");
         setDiscountProductIdx("");
+        setIsGuiaPlan(false);
+        setSelectedCustomerId("");
     }, [order]);
 
     // Calculate change
@@ -143,6 +171,8 @@ export default function CheckoutDialog({
                 discountProductId: discountAmount > 0 && discountType === "producto" && discountProductIdx !== "" 
                     ? order.products[Number(discountProductIdx)].productId 
                     : null,
+                isGuiaPlan,
+                guiaDiscount: guiaDiscount > 0 ? guiaDiscount : null,
                 tipPercentage,
                 tipAmount,
                 total: totalGeneral,
@@ -150,7 +180,7 @@ export default function CheckoutDialog({
             };
 
             Object.keys(payload).forEach(key => {
-                if (payload[key] === undefined) {
+                if (payload[key] === undefined || payload[key] === null) {
                     delete payload[key];
                 }
             });
@@ -184,6 +214,33 @@ export default function CheckoutDialog({
                     <Typography variant="h6" fontWeight={700}>
                         {order.name}
                     </Typography>
+                </Box>
+
+                {/* Plan Guía Toggle */}
+                <Box mb={3} p={2} sx={{ bgcolor: isGuiaPlan ? "success.50" : "#f8fafc", borderRadius: 3, border: "2px solid", borderColor: isGuiaPlan ? "success.main" : "#e2e8f0" }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Box>
+                            <Typography variant="subtitle1" fontWeight={800} color={isGuiaPlan ? "success.main" : "text.primary"}>
+                                🗺️ Plan Guía
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                Aplica -$5.000 por cada plato (excluye bebidas).
+                            </Typography>
+                        </Box>
+                        <Button 
+                            variant={isGuiaPlan ? "contained" : "outlined"}
+                            color="success"
+                            onClick={() => setIsGuiaPlan(!isGuiaPlan)}
+                            sx={{ borderRadius: 2, fontWeight: 900 }}
+                        >
+                            {isGuiaPlan ? "ACTIVADO" : "ACTIVAR"}
+                        </Button>
+                    </Stack>
+                    {isGuiaPlan && guiaDiscount > 0 && (
+                        <Typography variant="body2" color="success.main" fontWeight={800} mt={1} textAlign="right">
+                            Descuento Guía: -${guiaDiscount.toLocaleString()}
+                        </Typography>
+                    )}
                 </Box>
 
                 {/* Selector de Propina */}

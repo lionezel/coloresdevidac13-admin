@@ -49,4 +49,6 @@ export interface Order {
     discountMode?: "percentage" | "fixed";
     discountValue?: number;
     discountProductId?: string;
+    isGuiaPlan?: boolean;
+    guiaDiscount?: number;
 }

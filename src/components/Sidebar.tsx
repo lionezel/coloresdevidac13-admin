@@ -90,6 +90,12 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
       path: `/${restaurantId}/billing`,
     },
     {
+      id: "cash-closing",
+      text: "Cierre de Caja",
+      icon: <ReceiptIcon />, // Or another icon like SaveAlt or Paid
+      path: `/${restaurantId}/cash-closing`,
+    },
+    {
       id: "additions",
       text: "Adiciones",
       icon: <AddCircleIcon />,
@@ -121,7 +127,8 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
     if (isCajero) {
       return (
         item.id === "billing" ||
-        item.id === "orders"
+        item.id === "orders" ||
+        item.id === "cash-closing"
       );
     }
 
