@@ -22,6 +22,10 @@ import { Order } from "../interfaces/Order";
 import { useCollection } from "../hooks/useCollection";
 import { CreditCustomer } from "../interfaces/CreditCustomer";
 import { useParams } from "react-router-dom";
+import { useRef } from "react";
+import { useReactToPrint } from "react-to-print";
+import { InvoiceReceipt } from "./InvoiceReceipt";
+import PrintIcon from "@mui/icons-material/Print";
 
 interface CheckoutDialogProps {
     open: boolean;
@@ -39,7 +43,7 @@ export default function CheckoutDialog({
     const { restaurantId } = useParams<{ restaurantId: string }>();
     const [paymentMethod, setPaymentMethod] = useState<string>("efectivo");
     const [cashReceived, setCashReceived] = useState<number | "">("");
-    
+
     // Plan Guía
     const [isGuiaPlan, setIsGuiaPlan] = useState<boolean>(false);
 
@@ -80,12 +84,12 @@ export default function CheckoutDialog({
             const productDef = allProducts.find(prod => prod.id === p.productId);
             const cat = productDef?.category?.toLowerCase() || "";
             const name = p.productName.toLowerCase();
-            
-            const isDrink = cat.includes("bebida") || cat.includes("jugo") || cat.includes("gaseosa") || 
-                            cat.includes("cerveza") || cat.includes("licor") || cat.includes("trago") ||
-                            name.includes("bebida") || name.includes("jugo") || name.includes("gaseosa") || 
-                            name.includes("cerveza") || name.includes("limonada") || name.includes("agua");
-            
+
+            const isDrink = cat.includes("bebida") || cat.includes("jugo") || cat.includes("gaseosa") ||
+                cat.includes("cerveza") || cat.includes("licor") || cat.includes("trago") ||
+                name.includes("bebida") || name.includes("jugo") || name.includes("gaseosa") ||
+                name.includes("cerveza") || name.includes("limonada") || name.includes("agua");
+
             if (!isDrink) {
                 foodCount += Number(p.quantity || 1);
             }
@@ -110,7 +114,7 @@ export default function CheckoutDialog({
             }
             baseDiscount = Math.min(baseDiscount, targetAmount);
         }
-        
+
         return baseDiscount + guiaDiscount;
     }, [discountType, discountMode, discountValue, discountProductIdx, subTotal, order, guiaDiscount]);
 
@@ -151,6 +155,12 @@ export default function CheckoutDialog({
         cashReceived !== "" &&
         Number(cashReceived) < totalGeneral;
 
+    const componentRef = useRef<HTMLDivElement>(null);
+    const handlePrint = useReactToPrint({
+        contentRef: componentRef,
+        documentTitle: `Factura_${order?.id || 'new'}`,
+    });
+
     const handleFinish = async () => {
         if (isShortOnCash) return;
         if (paymentMethod === "fiado" && !selectedCustomerId) return;
@@ -168,8 +178,8 @@ export default function CheckoutDialog({
                 discountType: discountAmount > 0 ? (discountType as "total" | "producto") : null,
                 discountMode: discountAmount > 0 ? discountMode : null,
                 discountValue: discountAmount > 0 ? Number(discountValue) : null,
-                discountProductId: discountAmount > 0 && discountType === "producto" && discountProductIdx !== "" 
-                    ? order.products[Number(discountProductIdx)].productId 
+                discountProductId: discountAmount > 0 && discountType === "producto" && discountProductIdx !== ""
+                    ? order.products[Number(discountProductIdx)].productId
                     : null,
                 isGuiaPlan,
                 guiaDiscount: guiaDiscount > 0 ? guiaDiscount : null,
@@ -200,9 +210,21 @@ export default function CheckoutDialog({
                         <PointOfSaleIcon color="primary" fontSize="large" />
                         Checkout & Facturación
                     </Typography>
-                    <IconButton onClick={onClose} size="small">
-                        <CloseIcon />
-                    </IconButton>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            color="info"
+                            startIcon={<PrintIcon />}
+                            onClick={() => handlePrint()}
+                            sx={{ borderRadius: 2, fontWeight: 900, px: 2 }}
+                        >
+                            Imprimir Factura
+                        </Button>
+                        <IconButton onClick={onClose} size="small">
+                            <CloseIcon />
+                        </IconButton>
+                    </Stack>
                 </Stack>
             </DialogTitle>
 
@@ -227,7 +249,7 @@ export default function CheckoutDialog({
                                 Aplica -$5.000 por cada plato (excluye bebidas).
                             </Typography>
                         </Box>
-                        <Button 
+                        <Button
                             variant={isGuiaPlan ? "contained" : "outlined"}
                             color="success"
                             onClick={() => setIsGuiaPlan(!isGuiaPlan)}
@@ -250,17 +272,17 @@ export default function CheckoutDialog({
                     </Typography>
 
                     <Stack direction="row" spacing={1} mb={1.5}>
-                        <Button 
-                            variant={tipMode === "percentage" ? "contained" : "outlined"} 
-                            size="small" 
+                        <Button
+                            variant={tipMode === "percentage" ? "contained" : "outlined"}
+                            size="small"
                             onClick={() => setTipMode("percentage")}
                             sx={{ borderRadius: 2 }}
                         >
                             Porcentaje (%)
                         </Button>
-                        <Button 
-                            variant={tipMode === "fixed" ? "contained" : "outlined"} 
-                            size="small" 
+                        <Button
+                            variant={tipMode === "fixed" ? "contained" : "outlined"}
+                            size="small"
                             onClick={() => setTipMode("fixed")}
                             sx={{ borderRadius: 2 }}
                         >
@@ -359,18 +381,18 @@ export default function CheckoutDialog({
                             )}
 
                             <Stack direction="row" spacing={1} mb={2}>
-                                <Button 
-                                    variant={discountMode === "percentage" ? "contained" : "outlined"} 
-                                    size="small" 
+                                <Button
+                                    variant={discountMode === "percentage" ? "contained" : "outlined"}
+                                    size="small"
                                     onClick={() => setDiscountMode("percentage")}
                                     sx={{ borderRadius: 2 }}
                                     color="secondary"
                                 >
                                     Porcentaje (%)
                                 </Button>
-                                <Button 
-                                    variant={discountMode === "fixed" ? "contained" : "outlined"} 
-                                    size="small" 
+                                <Button
+                                    variant={discountMode === "fixed" ? "contained" : "outlined"}
+                                    size="small"
                                     onClick={() => setDiscountMode("fixed")}
                                     sx={{ borderRadius: 2 }}
                                     color="secondary"
@@ -415,7 +437,7 @@ export default function CheckoutDialog({
                             <Typography color="text.secondary" variant="body2" fontWeight={600}>Subtotal ({order.products.length} productos)</Typography>
                             <Typography fontWeight={700} variant="body2">${subTotal.toLocaleString()}</Typography>
                         </Stack>
-                        
+
                         {discountAmount > 0 && (
                             <Stack direction="row" justifyContent="space-between" alignItems="center">
                                 <Typography color="text.secondary" variant="body2" fontWeight={600}>
@@ -552,9 +574,11 @@ export default function CheckoutDialog({
             </DialogContent>
 
             <DialogActions sx={{ p: 3, pt: 0, justifyContent: "space-between" }}>
-                <Button onClick={onClose} size="large" sx={{ fontWeight: 600 }}>
-                    Cancelar
-                </Button>
+                <Stack direction="row" spacing={1}>
+                    <Button onClick={onClose} size="large" sx={{ fontWeight: 600 }}>
+                        Cancelar
+                    </Button>
+                </Stack>
                 <Button
                     variant="contained"
                     size="large"
@@ -573,6 +597,23 @@ export default function CheckoutDialog({
                     COBRAR Y FACTURAR
                 </Button>
             </DialogActions>
+
+            {/* Hidden Receipt for Printing */}
+            <Box sx={{ display: 'none' }}>
+                <InvoiceReceipt
+                    ref={componentRef}
+                    order={{
+                        ...order,
+                        subTotal,
+                        discountAmount,
+                        tipAmount,
+                        total: totalGeneral,
+                        isGuiaPlan,
+                        guiaDiscount,
+                        paymentMethod
+                    }}
+                />
+            </Box>
         </Dialog>
     );
 }

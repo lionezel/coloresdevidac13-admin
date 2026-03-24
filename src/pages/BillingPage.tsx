@@ -22,7 +22,11 @@ import {
     DeleteOutline,
     PointOfSale,
     InfoOutlined,
+    Print as PrintIcon,
 } from "@mui/icons-material";
+import { useRef } from "react";
+import { useReactToPrint } from "react-to-print";
+import { InvoiceReceipt } from "../components/InvoiceReceipt";
 import { useCollection } from "../hooks/useCollection";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
@@ -84,7 +88,7 @@ export default function BillingPage() {
                         // Descontar
                         const qty = Number(p.quantity || 1);
                         variant.stock = Math.max(0, (variant.stock || 0) - qty);
-                        
+
                         pData.variants[vIndex] = variant;
                         await updateDoc(docRef, { variants: pData.variants });
                     }
@@ -186,6 +190,12 @@ function BillingCard({
     onCheckout: (o: Order) => void;
     onDelete: (id: string) => void;
 }) {
+    const componentRef = useRef<HTMLDivElement>(null);
+    const handlePrint = useReactToPrint({
+        contentRef: componentRef,
+        documentTitle: `PreFactura_${order.id || 'order'}`,
+    });
+
     const date = order.date?.toDate ? order.date.toDate() : new Date(order.date);
     const minutes = differenceInMinutes(new Date(), date);
 
@@ -343,6 +353,11 @@ function BillingCard({
                         </MuiTooltip>
                     </Stack>
                 </CardActions>
+
+                {/* Hidden Receipt for Printing (avoid display: none for some print libs) */}
+                <Box sx={{ position: "absolute", top: -9999, left: -9999, opacity: 0, pointerEvents: "none" }}>
+                    <InvoiceReceipt ref={componentRef} order={order} />
+                </Box>
             </Card>
         </Fade>
     );
