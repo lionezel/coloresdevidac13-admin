@@ -73,11 +73,11 @@ const Metric = ({
     <CardContent>
       <Stack direction="row" justifyContent="space-between" spacing={2}>
         <Box>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: "0.7rem", md: "0.75rem" } }}>
             {title}
           </Typography>
 
-          <Typography variant="h5" fontWeight={700}>
+          <Typography variant="h5" fontWeight={700} sx={{ fontSize: { xs: "1.1rem", md: "1.5rem" } }}>
             {value}
           </Typography>
 
@@ -86,7 +86,7 @@ const Metric = ({
               size="small"
               label={subtitle}
               color="success"
-              sx={{ mt: 1 }}
+              sx={{ mt: 1, height: { xs: 20, md: 24 }, "& .MuiChip-label": { px: 1, fontSize: "0.65rem" } }}
             />
           )}
         </Box>
@@ -95,8 +95,8 @@ const Metric = ({
           sx={{
             bgcolor: `${color}20`,
             color,
-            width: 48,
-            height: 48,
+            width: { xs: 40, md: 48 },
+            height: { xs: 40, md: 48 },
           }}
         >
           {icon}
@@ -161,7 +161,7 @@ export default function Dashboard() {
   }
 
   return (
-    <Box p={{ xs: 2, md: 4 }} bgcolor="#f4f6fb" minHeight="100vh">
+    <Box p={{ xs: 1, md: 4 }} bgcolor="#f4f6fb" minHeight="100vh">
       {/* HEADER */}
       <Stack
         direction={{ xs: "column", md: "row" }}
@@ -170,12 +170,12 @@ export default function Dashboard() {
         spacing={2}
         mb={4}
       >
-        <Box>
-          <Typography variant="h4" fontWeight={800}>
+        <Box sx={{ mb: { xs: 1, md: 0 } }}>
+          <Typography variant="h4" fontWeight={800} sx={{ fontSize: { xs: "1.3rem", md: "2.125rem" } }}>
             Analytics
           </Typography>
-          <Typography color="text.secondary">
-            Resumen de rendimiento del restaurante
+          <Typography color="text.secondary" sx={{ fontSize: { xs: "0.85rem", md: "1rem" } }}>
+            Resumen de rendimiento
           </Typography>
         </Box>
 
@@ -258,14 +258,19 @@ export default function Dashboard() {
                 setPeriod(value);
               }
             }}
+            size="small"
             sx={{
               bgcolor: "#fff",
               borderRadius: 3,
               display: "flex",
-              flexWrap: "wrap",
+              flexWrap: "nowrap",
+              overflowX: "auto",
+              maxWidth: "100%",
               "& .MuiToggleButton-root": {
                 flex: "1 1 auto",
-                minWidth: "80px",
+                px: { xs: 1.5, sm: 2 },
+                minWidth: "auto",
+                whiteSpace: "nowrap"
               },
             }}
           >
@@ -278,7 +283,7 @@ export default function Dashboard() {
       </Stack>
 
       {/* KPIs */}
-      <Grid container spacing={3} mb={4}>
+      <Grid container spacing={{ xs: 1.5, md: 3 }} mb={4}>
         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Metric
             title="Ingresos"
@@ -364,7 +369,7 @@ export default function Dashboard() {
       </Grid>
 
       {/* CHARTS */}
-      <Grid container spacing={3}>
+      <Grid container spacing={{ xs: 1.5, md: 3 }}>
         {/* REVENUE CHART */}
         <Grid size={{ xs: 12, lg: 8 }}>
           <Card sx={{ borderRadius: 4, height: '100%' }}>
@@ -544,15 +549,21 @@ export default function Dashboard() {
                   sx={{ bgcolor: "#fff", borderRadius: 2, minWidth: 220 }}
                 />
               </Stack>
-              <Box sx={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
+              <Box sx={{ 
+                overflowX: "auto", 
+                mx: -2, // pull to edges on mobile
+                px: 2,
+                "&::-webkit-scrollbar": { height: 6 },
+                "&::-webkit-scrollbar-thumb": { backgroundColor: "#e2e8f0", borderRadius: 3 }
+              }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid #e2e8f0", textAlign: "left" }}>
-                      <th style={{ padding: "12px 16px", color: "#64748b" }}>Producto</th>
-                      <th style={{ padding: "12px 16px", color: "#64748b" }}>Categoría</th>
-                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b" }}>Stock Inicial</th>
-                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b" }}>Ventas</th>
-                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b" }}>Stock Actual</th>
+                      <th style={{ padding: "12px 16px", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.75rem" }}>Producto</th>
+                      <th style={{ padding: "12px 16px", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.75rem" }}>Categoría</th>
+                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.75rem" }}>Stock Inicial</th>
+                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.75rem" }}>Ventas</th>
+                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.75rem" }}>Stock Actual</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -578,11 +589,11 @@ export default function Dashboard() {
                       .sort((a, b) => b.sold - a.sold)
                       .map((item, idx) => (
                         <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                          <td style={{ padding: "12px 16px", fontWeight: 700, color: "#334155" }}>{item.name}</td>
-                          <td style={{ padding: "12px 16px", color: "#94a3b8", fontWeight: 500 }}>{item.category}</td>
-                          <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#64748b" }}>{item.initial}</td>
-                          <td style={{ padding: "12px 16px", textAlign: "right", color: item.sold > 0 ? "#f59e0b" : "#cbd5e1", fontWeight: 800 }}>{item.sold}</td>
-                          <td style={{ padding: "12px 16px", textAlign: "right", color: item.current <= 5 ? "#ef4444" : "#10b981", fontWeight: 900 }}>{item.current}</td>
+                          <td style={{ padding: "12px 16px", fontWeight: 700, color: "#334155", fontSize: "0.8rem" }}>{item.name}</td>
+                          <td style={{ padding: "12px 16px", color: "#94a3b8", fontWeight: 500, fontSize: "0.75rem" }}>{item.category}</td>
+                          <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#64748b", fontSize: "0.8rem" }}>{item.initial}</td>
+                          <td style={{ padding: "12px 16px", textAlign: "right", color: item.sold > 0 ? "#f59e0b" : "#cbd5e1", fontWeight: 800, fontSize: "0.8rem" }}>{item.sold}</td>
+                          <td style={{ padding: "12px 16px", textAlign: "right", color: item.current <= 5 ? "#ef4444" : "#10b981", fontWeight: 900, fontSize: "0.8rem" }}>{item.current}</td>
                         </tr>
                       ))}
                   </tbody>

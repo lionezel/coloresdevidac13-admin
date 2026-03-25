@@ -223,20 +223,20 @@ export default function CashClosingPage() {
     };
 
     return (
-        <Box p={{ xs: 2, md: 4 }} bgcolor="#f8fafc" minHeight="100vh">
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
+        <Box p={{ xs: 1, md: 4 }} bgcolor="#f8fafc" minHeight="100vh">
+            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={2} mb={4}>
                 <Box>
-                    <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: "-0.02em" }}>
+                    <Typography variant="h4" fontWeight={900} sx={{ letterSpacing: "-0.02em", fontSize: { xs: "1.3rem", md: "2.125rem" } }}>
                         Cierre de Caja
                     </Typography>
-                    <Typography color="text.secondary">
-                        Resumen diario de ventas y conciliación de efectivo.
+                    <Typography color="text.secondary" sx={{ fontSize: { xs: "0.85rem", md: "1rem" } }}>
+                        Resumen diario de ventas y conciliación.
                     </Typography>
                 </Box>
                 <Chip
-                    label={new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    label={new Date().toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                     icon={<CalendarMonth />}
-                    sx={{ fontWeight: 700, px: 1, height: 40, borderRadius: 2, bgcolor: "#fff", border: "1px solid #e2e8f0" }}
+                    sx={{ fontWeight: 700, px: 1, height: 32, borderRadius: 2, bgcolor: "#fff", border: "1px solid #e2e8f0", fontSize: "0.75rem" }}
                 />
             </Stack>
 
@@ -246,7 +246,7 @@ export default function CashClosingPage() {
                 </Alert>
             )}
 
-            <Grid container spacing={3}>
+            <Grid container spacing={{ xs: 1.5, md: 3 }}>
                 {/* 💳 RESUMEN DE VENTAS */}
                 <Grid size={{ xs: 12, lg: 8 }}>
                     <Grid container spacing={2}>
@@ -272,10 +272,10 @@ export default function CashClosingPage() {
 
                     <Card sx={{ mt: 3, borderRadius: 4, border: "1px solid #e2e8f0" }}>
                         <CardContent>
-                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <ReceiptLong color="primary" /> Órdenes de Hoy ({todayOrders.length})
+                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
+                                <ReceiptLong color="primary" /> Órdenes ({todayOrders.length})
                             </Typography>
-                            <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 400 }}>
+                            <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 400, mx: { xs: -1, md: 0 }, width: { xs: 'calc(100% + 16px)', md: '100%' } }}>
                                 <Table stickyHeader>
                                     <TableHead>
                                         <TableRow>
@@ -316,12 +316,12 @@ export default function CashClosingPage() {
                     {/* 💸 EGRESOS / PAGOS */}
                     <Card sx={{ mt: 3, borderRadius: 4, border: "1px solid #e2e8f0" }}>
                         <CardContent>
-                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <LocalAtm color="error" /> Pagos y Salidas (Egresos)
+                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
+                                <LocalAtm color="error" /> Egresos
                             </Typography>
 
                             <Stack spacing={2} mb={3}>
-                                <Stack direction="row" spacing={2}>
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                                     <TextField
                                         label="Descripción"
                                         size="small"
@@ -334,13 +334,14 @@ export default function CashClosingPage() {
                                         label="Monto"
                                         type="number"
                                         size="small"
-                                        sx={{ width: 150 }}
+                                        sx={{ width: { xs: "100%", sm: 150 } }}
                                         value={newExpense.amount === 0 ? "" : newExpense.amount}
                                         onChange={(e) => setNewExpense({ ...newExpense, amount: Number(e.target.value) })}
                                     />
                                     <Button
                                         variant="contained"
                                         color="error"
+                                        sx={{ width: { xs: "100%", sm: "auto" } }}
                                         onClick={() => {
                                             if (newExpense.description && newExpense.amount > 0) {
                                                 setExpenses([...expenses, newExpense]);
@@ -397,15 +398,15 @@ export default function CashClosingPage() {
                 <Grid size={{ xs: 12, lg: 4 }}>
                     <Card sx={{ borderRadius: 4, border: "1px solid #e2e8f0", mb: 3 }}>
                         <CardContent sx={{ p: 3 }}>
-                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <History color="primary" /> Desglose de Efectivo
+                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
+                                <History color="primary" /> Desglose Efectivo
                             </Typography>
 
-                            <Grid container spacing={2}>
+                            <Grid container spacing={1.5}>
                                 {/* BILLETES */}
                                 <Grid size={{ xs: 12 }}><Typography variant="caption" fontWeight={900} color="text.secondary">BILLETES</Typography></Grid>
                                 {[100000, 50000, 20000, 10000, 5000, 2000].map(val => (
-                                    <Grid size={{ xs: 6 }} key={val}>
+                                    <Grid size={{ xs: 12, sm: 6 }} key={val}>
                                         <DenominationInput
                                             label={`$${val / 1000}k`}
                                             value={denominations[`bills${val}` as keyof typeof denominations]}
@@ -417,7 +418,7 @@ export default function CashClosingPage() {
                                 {/* MONEDAS */}
                                 <Grid size={{ xs: 12 }} sx={{ mt: 1 }}><Typography variant="caption" fontWeight={900} color="text.secondary">MONEDAS</Typography></Grid>
                                 {[1000, 500, 200, 100].map(val => (
-                                    <Grid size={{ xs: 6 }} key={val}>
+                                    <Grid size={{ xs: 12, sm: 6 }} key={val}>
                                         <DenominationInput
                                             label={`$${val}`}
                                             value={denominations[`coins${val}` as keyof typeof denominations]}
@@ -428,13 +429,13 @@ export default function CashClosingPage() {
                             </Grid>
 
                             <Box sx={{ mt: 3, p: 2, bgcolor: "#f0fdf4", borderRadius: 3, textAlign: 'center' }}>
-                                <Typography variant="caption" fontWeight={700} color="success.main" display="block">TOTAL EFECTIVO CONTADO</Typography>
-                                <Typography variant="h5" fontWeight={900} color="success.dark">{formatCOP(totalFromBreakdown)}</Typography>
+                                <Typography variant="caption" fontWeight={700} color="success.main" display="block">TOTAL CONTADO</Typography>
+                                <Typography variant="h5" fontWeight={900} color="success.dark" sx={{ fontSize: { xs: "1.2rem", md: "1.5rem" } }}>{formatCOP(totalFromBreakdown)}</Typography>
                             </Box>
                         </CardContent>
                     </Card>
 
-                    <Card sx={{ borderRadius: 4, border: "1px solid #e2e8f0", position: 'sticky', top: 20 }}>
+                    <Card sx={{ borderRadius: 4, border: "1px solid #e2e8f0", position: { xs: 'relative', md: 'sticky' }, top: 20 }}>
                         <CardContent sx={{ p: 4 }}>
                             <Typography variant="h6" fontWeight={800} mb={3}>
                                 Realizar Cierre
@@ -461,44 +462,41 @@ export default function CashClosingPage() {
 
                                 <Box sx={{ p: 2, bgcolor: "#f1f5f9", borderRadius: 3 }}>
                                     <Stack spacing={1}>
-                                        <Stack direction="row" justifyContent="space-between">
-                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Total Ventas Brutas:</Typography>
+                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Ventas Brutas:</Typography>
                                             <Typography variant="caption" fontWeight={700}>{formatCOP(summary.totalGross)}</Typography>
                                         </Stack>
-                                        <Stack direction="row" justifyContent="space-between">
-                                            <Typography variant="caption" color="error.main" fontWeight={600}>(-) Descuento Guías:</Typography>
+                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                            <Typography variant="caption" color="error.main" fontWeight={600}>(-) Desc. Guías:</Typography>
                                             <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(summary.totalGuiaDiscount)}</Typography>
                                         </Stack>
                                         <Divider sx={{ my: 0.5 }} />
-                                        <Stack direction="row" justifyContent="space-between">
-                                            <Typography variant="caption" color="error.main" fontWeight={600}>(-) Egresos / Pagos:</Typography>
+                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                            <Typography variant="caption" color="error.main" fontWeight={600}>(-) Egresos:</Typography>
                                             <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(totalExpenses)}</Typography>
                                         </Stack>
                                         <Divider sx={{ my: 0.5 }} />
-                                        <Stack direction="row" justifyContent="space-between">
-                                            <Typography variant="body2" color="text.primary" fontWeight={800}>(=) Venta Total Neta:</Typography>
+                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                            <Typography variant="body2" color="text.primary" fontWeight={800}>Venta Neta:</Typography>
                                             <Typography variant="body2" fontWeight={900}>{formatCOP(summary.totalSales)}</Typography>
                                         </Stack>
                                         <Divider sx={{ my: 1 }} />
-                                        <Stack direction="row" justifyContent="space-between">
-                                            <Typography variant="body2" color="text.secondary" fontWeight={600}>Efectivo Sistema (Teórico):</Typography>
+                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                            <Typography variant="body2" color="text.secondary" fontWeight={600}>Teórico:</Typography>
                                             <Typography variant="body2" fontWeight={800}>{formatCOP(expectedCash)}</Typography>
                                         </Stack>
-                                        <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic', display: 'block', mt: 0.5 }}>
-                                            * Teórico = Base + Ventas Efectivo - Egresos
-                                        </Typography>
                                     </Stack>
 
                                     <Divider sx={{ my: 1.5 }} />
 
-                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                        <Typography variant="subtitle1" fontWeight={800}>Diferencia:</Typography>
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+                                        <Typography variant="subtitle2" fontWeight={800}>Diferencia:</Typography>
                                         <Box sx={{ textAlign: 'right' }}>
-                                            <Typography variant="subtitle1" fontWeight={1000} color={difference === 0 ? "text.primary" : difference > 0 ? "success.main" : "error.main"}>
+                                            <Typography variant="subtitle2" fontWeight={1000} color={difference === 0 ? "text.primary" : difference > 0 ? "success.main" : "error.main"}>
                                                 {formatCOP(difference)}
                                             </Typography>
                                             {difference !== 0 && (
-                                                <Typography variant="caption" fontWeight={900} color={difference > 0 ? "success.main" : "error.main"} sx={{ display: 'block' }}>
+                                                <Typography variant="caption" fontWeight={900} color={difference > 0 ? "success.main" : "error.main"} sx={{ display: 'block', fontSize: '0.65rem' }}>
                                                     {difference > 0 ? "SOBRANTE" : "FALTANTE"}
                                                 </Typography>
                                             )}
@@ -548,10 +546,10 @@ export default function CashClosingPage() {
                 <Grid size={{ xs: 12 }}>
                     <Card sx={{ mt: 2, borderRadius: 4, border: "1px solid #e2e8f0" }}>
                         <CardContent>
-                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <History color="action" /> Historial de Cierres
+                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
+                                <History color="action" /> Historial
                             </Typography>
-                            <TableContainer>
+                            <TableContainer sx={{ mx: { xs: -1, md: 0 }, width: { xs: 'calc(100% + 16px)', md: '100%' }, overflowX: "auto" }}>
                                 <Table>
                                     <TableHead>
                                         <TableRow>
@@ -633,7 +631,7 @@ export default function CashClosingPage() {
                                 <History color="primary" /> Rendimiento del Negocio (Últimos 30 días)
                             </Typography>
 
-                            <Grid container spacing={3}>
+                            <Grid container spacing={{ xs: 1.5, md: 3 }}>
                                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                                     <SummaryCard
                                         title="Ventas Totales (Netas)"
@@ -688,16 +686,16 @@ function SummaryCard({ title, value, icon, color, isTotal }: { title: string; va
             transition: "0.2s",
             "&:hover": { transform: "translateY(-2px)", boxShadow: 3 }
         }}>
-            <CardContent sx={{ p: 2 }}>
+            <CardContent sx={{ p: { xs: 1.5, md: 2 } }}>
                 <Stack spacing={1}>
-                    <Avatar sx={{ bgcolor: `${color}15`, color: color, width: 32, height: 32 }}>
+                    <Avatar sx={{ bgcolor: `${color}15`, color: color, width: { xs: 28, md: 32 }, height: { xs: 28, md: 32 } }}>
                         {icon}
                     </Avatar>
                     <Box>
-                        <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: "uppercase", fontSize: "0.65rem", letterSpacing: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ textTransform: "uppercase", fontSize: { xs: "0.55rem", md: "0.65rem" }, letterSpacing: 0.5 }}>
                             {title}
                         </Typography>
-                        <Typography variant="h6" fontWeight={900} color={isTotal ? color : "text.primary"}>
+                        <Typography variant="h6" fontWeight={900} color={isTotal ? color : "text.primary"} sx={{ fontSize: { xs: "1rem", md: "1.25rem" } }}>
                             {formatCOP(value)}
                         </Typography>
                     </Box>

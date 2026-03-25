@@ -22,7 +22,7 @@ export default function SidebarLayout() {
   };
 
   return (
-    <Box sx={{ display: "flex", overflowX: "hidden" }}>
+    <Box sx={{ display: "flex" }}>
       {/* 🔹 AppBar */}
       <AppBar
         position="fixed"
@@ -62,7 +62,8 @@ export default function SidebarLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 1.5, sm: 2, md: 3 },
+          width: { xs: "100%", md: `calc(100% - ${drawerWidth}px)` },
           minHeight: "100vh",
           backgroundColor: "#f8fafc",
           transition: theme.transitions.create(['margin', 'width'], {
