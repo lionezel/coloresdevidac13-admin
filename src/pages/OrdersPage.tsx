@@ -32,9 +32,10 @@ import {
 } from "@mui/icons-material";
 import { useCollection } from "../hooks/useCollection";
 import { differenceInMinutes } from "date-fns";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Order, OrderStatus } from "../interfaces/Order";
 import { Product } from "../interfaces/product";
+
 
 /* =======================
    🎨 Configuración de Estados
@@ -67,6 +68,7 @@ const playNotificationSound = () => {
 
 export default function OrdersPage() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
+  const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const previousOrdersCount = useRef(0);
 
@@ -136,15 +138,23 @@ export default function OrdersPage() {
           </Typography>
         </Box>
 
-        <Paper
-          elevation={0}
-          sx={{
-            p: 0.5,
-            borderRadius: 3,
-            bgcolor: "#f1f5f9",
-            border: "1px solid #e2e8f0"
-          }}
-        >
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Button
+            variant="contained"
+            onClick={() => navigate(`/${restaurantId}/create-order`)}
+            sx={{ fontWeight: 800, borderRadius: 2, py: 1 }}
+          >
+            + Nueva Orden
+          </Button>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 0.5,
+              borderRadius: 3,
+              bgcolor: "#f1f5f9",
+              border: "1px solid #e2e8f0"
+            }}
+          >
           <Tabs
             value={tabValue}
             onChange={handleTabChange}
@@ -157,7 +167,8 @@ export default function OrdersPage() {
             <Tab label={`Activas (${orders.filter(o => !["completada", "cancelada", "porCobrar", "listo / caja"].includes(o.state)).length})`} />
             <Tab label="Caja e Historial" />
           </Tabs>
-        </Paper>
+          </Paper>
+        </Box>
       </Stack>
 
       {/* GRILLA DE ÓRDENES */}

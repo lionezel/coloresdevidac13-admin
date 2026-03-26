@@ -20,7 +20,7 @@ import AdditionsPage from "./pages/AdditionsPage";
 // import CreditCustomersPage from "./pages/CreditCustomersPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import CashClosingPage from "./pages/CashClosingPage";
-
+import CreateOrderPage from "./pages/CreateOrderPage";
 
 
 const theme = createTheme({
@@ -54,6 +54,7 @@ export default function App() {
                   <Route path="billing" element={<BillingPage />} />
                   <Route path="cash-closing" element={<CashClosingPage />} />
                   <Route path="orders" element={<OrdersPage />} />
+                  <Route path="create-order" element={<CreateOrderPage />} />
                   {/* <Route path="credit-customers" element={<CreditCustomersPage />} /> */}
 
                 </Route>
