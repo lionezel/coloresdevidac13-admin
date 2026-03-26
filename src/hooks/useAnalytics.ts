@@ -136,29 +136,78 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
       return date >= startPrev && date <= endPrev;
     });
 
-    /* 🔹 KPIs actuales */
-    const revenue = filteredOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+    /* 🔹 Métodos de Pago y Tipos de Orden */
+    const paymentMethodsMap: Record<string, number> = {};
+    const orderTypesMap: Record<string, number> = {};
+    const paymentRevenue = { efectivo: 0, tarjeta: 0, transferencia: 0, otros: 0 };
+    let totalTips = 0;
+
+    /* 🔹 Revenue chart & Product analysis */
+    const revenueMap: Record<string, number> = {};
+    const productQtyMap: Record<string, number> = {};
+    const productRevMap: Record<string, number> = {};
+
+    filteredOrders.forEach((order) => {
+      const pm = order.paymentMethod?.toLowerCase() || "desconocido";
+      const total = Number(order.total || 0);
+      const tip = Number(order.tipAmount || 0);
+      totalTips += tip;
+
+      // Aplicar retención del 5% si es tarjeta
+      const isCard = pm.includes("tarjeta") || pm.includes("card") || pm.includes("crédito") || pm.includes("debito") || pm.includes("débito") || pm.includes("credito");
+      const netTotal = isCard ? total * 0.95 : total;
+
+      if (pm.includes("efectivo") || pm === "cash") {
+        paymentRevenue.efectivo += total;
+      } else if (isCard) {
+        paymentRevenue.tarjeta += netTotal;
+      } else if (pm.includes("transferencia") || pm.includes("nequi") || pm.includes("bancolombia") || pm.includes("daviplata") || pm.includes("pse")) {
+        paymentRevenue.transferencia += total;
+      } else {
+        paymentRevenue.otros += total;
+      }
+
+      // Gráfico de ingresos (usando neto)
+      const date = toDate(order);
+      const dateString = date.toLocaleDateString();
+      revenueMap[dateString] = (revenueMap[dateString] || 0) + netTotal;
+
+      // Top productos
+      order.products?.forEach((p) => {
+        const qty = Number(p.quantity || 1);
+        const price = Number(p.price || 0);
+        productQtyMap[p.productName] = (productQtyMap[p.productName] || 0) + qty;
+        // Si el producto se pagó con tarjeta, ¿también descontamos el 5% de su revenue? 
+        // Sí, para ser consistentes con el total revenue.
+        const productNetPrice = isCard ? price * 0.95 : price;
+        productRevMap[p.productName] = (productRevMap[p.productName] || 0) + (qty * productNetPrice);
+      });
+
+      paymentMethodsMap[pm] = (paymentMethodsMap[pm] || 0) + 1;
+      const ot = order.orderType || "no especificado";
+      orderTypesMap[ot] = (orderTypesMap[ot] || 0) + 1;
+    });
+
+    /* 🔹 KPIs actuales con descuento aplicado */
+    const revenue = paymentRevenue.efectivo + paymentRevenue.tarjeta + paymentRevenue.transferencia + paymentRevenue.otros;
     const ordersCount = filteredOrders.length;
     const users = new Set(filteredOrders.map((o) => o.name)).size;
     const ticketAvg = ordersCount ? revenue / ordersCount : 0;
 
-    /* 🔹 Growth */
-    const prevRevenue = previousOrders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+    /* 🔹 Growth (basado en neto) */
+    const prevRevenue = previousOrders.reduce((sum, order) => {
+      const pm = order.paymentMethod?.toLowerCase() || "";
+      const total = Number(order.total || 0);
+      const isCard = pm.includes("tarjeta") || pm.includes("card") || pm.includes("crédito") || pm.includes("debito") || pm.includes("débito") || pm.includes("credito");
+      return sum + (isCard ? total * 0.95 : total);
+    }, 0);
     const growth = prevRevenue ? ((revenue - prevRevenue) / prevRevenue) * 100 : (revenue && prevRevenue === 0) ? 100 : 0;
 
     /* 🔹 Estados */
     const delivered = filteredOrders.filter((o) => o.state === "completada").length;
     const cancelled = filteredOrders.filter((o) => o.state === "cancelada").length;
 
-    /* 🔹 Revenue chart */
-    const revenueMap: Record<string, number> = {};
-    filteredOrders.forEach((order) => {
-      const date = toDate(order);
-      const dateString = date.toLocaleDateString();
-      const total = Number(order.total || 0);
-      revenueMap[dateString] = (revenueMap[dateString] || 0) + total;
-    });
-
+    /* 🔹 Revenue Chart formatting */
     const revenueChart = Object.entries(revenueMap)
       .map(([date, total]) => {
         const firstOrderOfDay = filteredOrders.find(o => toDate(o).toLocaleDateString() === date);
@@ -167,56 +216,16 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
       })
       .sort((a, b) => a.timestamp - b.timestamp);
 
-    /* 🔹 Top productos */
-    const productQtyMap: Record<string, number> = {};
-    const productRevMap: Record<string, number> = {};
-
-    filteredOrders.forEach((order) => {
-      order.products?.forEach((p) => {
-        const qty = Number(p.quantity || 1);
-        const price = Number(p.price || 0);
-        productQtyMap[p.productName] = (productQtyMap[p.productName] || 0) + qty;
-        productRevMap[p.productName] = (productRevMap[p.productName] || 0) + (qty * price);
-      });
-    });
-
+    /* 🔹 Top products formatting */
     const topProducts = Object.entries(productQtyMap)
       .map(([name, qty]) => ({ name, qty }))
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 5);
 
     const topProductsByRevenue = Object.entries(productRevMap)
-      .map(([name, revenue]) => ({ name, revenue }))
+      .map(([name, netRevenue]) => ({ name, revenue: netRevenue }))
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
-
-    /* 🔹 Métodos de Pago y Tipos de Orden */
-    const paymentMethodsMap: Record<string, number> = {};
-    const orderTypesMap: Record<string, number> = {};
-    const paymentRevenue = { efectivo: 0, tarjeta: 0, transferencia: 0, otros: 0 };
-    let totalTips = 0;
-
-    filteredOrders.forEach((order) => {
-      const pm = order.paymentMethod?.toLowerCase() || "desconocido";
-      const total = Number(order.total || 0);
-      const tip = Number(order.tipAmount || 0);
-
-      totalTips += tip;
-
-      if (pm.includes("efectivo") || pm === "cash") {
-        paymentRevenue.efectivo += total;
-      } else if (pm.includes("tarjeta") || pm.includes("card") || pm.includes("crédito") || pm.includes("debito") || pm.includes("débito") || pm.includes("credito")) {
-        paymentRevenue.tarjeta += total;
-      } else if (pm.includes("transferencia") || pm.includes("nequi") || pm.includes("bancolombia") || pm.includes("daviplata") || pm.includes("pse")) {
-        paymentRevenue.transferencia += total;
-      } else {
-        paymentRevenue.otros += total;
-      }
-
-      paymentMethodsMap[pm] = (paymentMethodsMap[pm] || 0) + 1;
-      const ot = order.orderType || "no especificado";
-      orderTypesMap[ot] = (orderTypesMap[ot] || 0) + 1;
-    });
 
     const paymentMethods = Object.entries(paymentMethodsMap).map(([name, value]) => ({ name, value }));
     const orderTypes = Object.entries(orderTypesMap).map(([name, value]) => ({ name, value }));
@@ -224,7 +233,7 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
     /* 🔹 Plan Guía Analysis */
     const totalGuiaDiscount = filteredOrders.reduce((sum, order) => sum + Number(order.guiaDiscount || 0), 0);
 
-    /* 🔹 Horas Pico */
+    /* 🔹 Horas Pico (no se ven afectadas por el descuento) */
     const peakHoursMap: Record<string, number> = {};
     filteredOrders.forEach((order) => {
       const date = toDate(order);

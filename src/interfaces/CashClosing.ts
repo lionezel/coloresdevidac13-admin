@@ -11,6 +11,10 @@ export interface CashClosing {
     openingBalance: number;
     actualCash: number;
     difference: number;
+    actualTransfer?: number;
+    transferDifference?: number;
+    actualCard?: number;
+    cardDifference?: number;
     totals: {
         efectivo: number;
         tarjeta: number;
