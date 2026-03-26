@@ -40,6 +40,7 @@ export default function CreateOrderPage() {
 
   const { data: allProducts = [] } = useCollection<Product>(restaurantId!, "products");
   const { data: categories = [] } = useCollection<{ id: string; name: string }>(restaurantId!, "category");
+  const { data: allAdditions = [] } = useCollection<Addition>(restaurantId!, "additions");
 
   const { createItem: createOrder } = useCollection<Order>(restaurantId!, "orders");
 
@@ -53,6 +54,7 @@ export default function CreateOrderPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
+  const [selectedAdditions, setSelectedAdditions] = useState<Addition[]>([]);
 
   // Order Details state
   const [customerName, setCustomerName] = useState("");
@@ -74,6 +76,7 @@ export default function CreateOrderPage() {
     setSelectedProduct(product);
     setSelectedVariant(product.variants[0] || null);
     setQuantity(1);
+    setSelectedAdditions([]);
   };
 
   const handleCloseDialog = () => {
@@ -83,20 +86,25 @@ export default function CreateOrderPage() {
   const handleAddToCart = () => {
     if (!selectedProduct || !selectedVariant) return;
 
+    const additionsTotal = selectedAdditions.reduce((acc, add) => acc + add.price, 0);
+    const unitPrice = selectedVariant.price + additionsTotal;
+
     const newCartItem: OrderProduct = {
       productId: selectedProduct.id!,
       productName: selectedProduct.name,
       variantId: selectedVariant.id,
       variantLabel: selectedVariant.label,
-      price: selectedVariant.price,
+      price: unitPrice,
       quantity: quantity,
       image: selectedVariant.image || "",
-      total: selectedVariant.price * quantity,
+      total: unitPrice * quantity,
+      additions: selectedAdditions.map(a => ({ id: a.id!, name: a.name, price: a.price })),
       completed: false
     };
 
     setCart([...cart, newCartItem]);
     setSelectedProduct(null);
+    setSelectedAdditions([]);
   };
 
   const handleRemoveFromCart = (index: number) => {
@@ -136,11 +144,11 @@ export default function CreateOrderPage() {
 
   // Cart Component
   const CartSidebar = (
-    <Box sx={{ width: isMobile ? "auto" : 380, height: "100%", display: "flex", flexDirection: "column", bgcolor: "#fff", borderLeft: "1px solid #e2e8f0" }}>
-      <Box sx={{ p: 3, borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <Box sx={{ width: isMobile ? "90vw" : 380, height: "100%", display: "flex", flexDirection: "column", bgcolor: "#fff", borderLeft: isMobile ? "none" : "1px solid #e2e8f0" }}>
+      <Box sx={{ p: 2, borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <Typography variant="h6" fontWeight={800}>Resumen de Orden</Typography>
         {isMobile && (
-          <IconButton onClick={() => setIsDrawerOpen(false)}>
+          <IconButton onClick={() => setIsDrawerOpen(false)} size="small">
             <Close />
           </IconButton>
         )}
@@ -163,6 +171,11 @@ export default function CreateOrderPage() {
                   <Typography variant="caption" color="text.secondary" display="block">
                     {item.variantLabel !== "Única" && item.variantLabel}
                   </Typography>
+                  {item.additions && item.additions.length > 0 && (
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      + {item.additions.map(a => a.name).join(", ")}
+                    </Typography>
+                  )}
                   <Typography variant="caption" fontWeight={700} color="primary" display="block" mt={0.5}>
                     ${item.total}
                   </Typography>
@@ -222,16 +235,16 @@ export default function CreateOrderPage() {
     <Box sx={{ display: "flex", height: "calc(100vh - 80px)", margin: "-24px" }}>
       {/* LEFT SIDE: Products */}
       <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", bgcolor: "#f1f5f9" }}>
-        <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Box sx={{ p: { xs: 1.5, md: 3 }, bgcolor: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Box>
-            <Typography variant="h5" fontWeight={900}>Nueva Orden (POS)</Typography>
-            <Typography variant="body2" color="text.secondary">Selecciona los productos y crea un pedido rápidamente</Typography>
+            <Typography variant={isMobile ? "subtitle1" : "h5"} fontWeight={900}>Nueva Orden</Typography>
+            {!isMobile && <Typography variant="body2" color="text.secondary">Selecciona los productos y crea un pedido rápidamente</Typography>}
           </Box>
-          <Box sx={{ display: "flex", gap: 2 }}>
-            <Button variant="outlined" onClick={() => navigate(`/${restaurantId}/orders`)}>Volver a Órdenes</Button>
+          <Box sx={{ display: "flex", gap: 1 }}>
+            {!isMobile && <Button variant="outlined" size="small" onClick={() => navigate(`/${restaurantId}/orders`)}>Volver</Button>}
             {isMobile && (
-              <Button variant="contained" onClick={() => setIsDrawerOpen(true)}>
-                Ver Carrito ({cart.length})
+              <Button variant="contained" size="small" onClick={() => setIsDrawerOpen(true)} sx={{ fontWeight: 800 }}>
+                Carrito ({cart.length})
               </Button>
             )}
           </Box>
@@ -304,22 +317,102 @@ export default function CreateOrderPage() {
 
       {/* MODAL: Add To Cart */}
       {selectedProduct && (
-        <Dialog open={!!selectedProduct} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontWeight: 800 }}>{selectedProduct.name}</DialogTitle>
+        <Dialog 
+          open={!!selectedProduct} 
+          onClose={handleCloseDialog} 
+          maxWidth="sm" 
+          fullWidth
+          fullScreen={isMobile}
+        >
+          <DialogTitle sx={{ fontWeight: 800, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            {selectedProduct.name}
+            {isMobile && (
+              <IconButton onClick={handleCloseDialog} size="small">
+                <Close />
+              </IconButton>
+            )}
+          </DialogTitle>
           <DialogContent dividers>
             {/* Quantity */}
             <Typography variant="subtitle2" fontWeight={800} mb={1}>Cantidad:</Typography>
-            <Stack direction="row" alignItems="center" spacing={2}>
+            <Stack direction="row" alignItems="center" spacing={2} mb={3}>
               <IconButton onClick={() => setQuantity(Math.max(1, quantity - 1))} sx={{ bgcolor: "grey.100" }}><Remove /></IconButton>
               <Typography variant="h6" fontWeight={800}>{quantity}</Typography>
               <IconButton onClick={() => setQuantity(quantity + 1)} sx={{ bgcolor: "grey.100" }}><Add /></IconButton>
             </Stack>
 
+            {/* Additions */}
+            {allAdditions.length > 0 && (
+              <>
+                <Typography variant="subtitle2" fontWeight={800} mb={1}>Adiciones:</Typography>
+                <Grid container spacing={1}>
+                  {(() => {
+                    const filtered = allAdditions.filter(a => 
+                      !a.category || 
+                      a.category.toLowerCase() === selectedProduct.category.toLowerCase() ||
+                      a.category === "General"
+                    );
+                    const showAll = filtered.length === 0;
+                    const toShow = showAll ? allAdditions : filtered;
+                    
+                    return (
+                      <>
+                        {showAll && (
+                          <Grid size={12}>
+                            <Typography variant="caption" color="warning.main" sx={{ mb: 1, display: "block" }}>
+                              Mostrando todas las adiciones (no hay específicas para esta categoría).
+                            </Typography>
+                          </Grid>
+                        )}
+                        {toShow.map((addition) => (
+                          <Grid size={{ xs: 12, sm: 6 }} key={addition.id}>
+                            <FormControlLabel
+                              sx={{ 
+                                border: "1px solid #e2e8f0", 
+                                borderRadius: 2, 
+                                m: 0, 
+                                mb: 1, 
+                                width: "100%", 
+                                p: 0.5,
+                                bgcolor: selectedAdditions.some(a => a.id === addition.id) ? "primary.50" : "transparent"
+                              }}
+                              control={
+                                <Checkbox 
+                                  checked={selectedAdditions.some(a => a.id === addition.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedAdditions([...selectedAdditions, addition]);
+                                    } else {
+                                      setSelectedAdditions(selectedAdditions.filter(a => a.id !== addition.id));
+                                    }
+                                  }}
+                                />
+                              }
+                              label={
+                                <Box>
+                                  <Typography variant="body2" fontWeight={600}>
+                                    {addition.name}
+                                  </Typography>
+                                  <Typography variant="caption" color="primary.main">
+                                    +${addition.price}
+                                  </Typography>
+                                </Box>
+                              }
+                            />
+                          </Grid>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </Grid>
+              </>
+            )}
+
           </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, bgcolor: "#f8fafc" }}>
             <Button onClick={handleCloseDialog} color="inherit">Cancelar</Button>
-            <Button variant="contained" onClick={handleAddToCart} sx={{ borderRadius: 2, fontWeight: 700 }}>
-              Agregar a la Orden (${(selectedVariant?.price || 0) * quantity})
+            <Button variant="contained" onClick={handleAddToCart} sx={{ borderRadius: 2, fontWeight: 700, flex: isMobile ? 1 : "initial" }}>
+              Agregar (${((selectedVariant?.price || 0) + selectedAdditions.reduce((acc, a) => acc + a.price, 0)) * quantity})
             </Button>
           </DialogActions>
         </Dialog>
