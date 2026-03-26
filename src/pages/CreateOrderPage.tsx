@@ -144,78 +144,105 @@ export default function CreateOrderPage() {
 
   // Cart Component
   const CartSidebar = (
-    <Box sx={{ width: isMobile ? "90vw" : 380, height: "100%", display: "flex", flexDirection: "column", bgcolor: "#fff", borderLeft: isMobile ? "none" : "1px solid #e2e8f0" }}>
-      <Box sx={{ p: 2, borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Typography variant="h6" fontWeight={800}>Resumen de Orden</Typography>
+    <Box sx={{ 
+      width: isMobile ? "90vw" : 400, 
+      height: "100%", 
+      display: "flex", 
+      flexDirection: "column", 
+      bgcolor: "rgba(255, 255, 255, 0.9)", 
+      backdropFilter: "blur(12px)",
+      borderLeft: isMobile ? "none" : "1px solid rgba(226, 232, 240, 0.8)",
+      boxShadow: "-4px 0 20px rgba(0, 0, 0, 0.05)"
+    }}>
+      <Box sx={{ p: 2.5, borderBottom: "1px solid rgba(226, 232, 240, 0.8)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <Typography variant="h6" sx={{ fontWeight: 900, color: "#1e293b", letterSpacing: "-0.02em" }}>Mi Orden</Typography>
         {isMobile && (
-          <IconButton onClick={() => setIsDrawerOpen(false)} size="small">
+          <IconButton onClick={() => setIsDrawerOpen(false)} size="small" sx={{ bgcolor: "#f1f5f9" }}>
             <Close />
           </IconButton>
         )}
       </Box>
 
-      <Box sx={{ flex: 1, overflowY: "auto", p: 3 }}>
+      <Box sx={{ flex: 1, overflowY: "auto", p: 2.5 }}>
         {cart.length === 0 ? (
-          <Box sx={{ textAlign: "center", mt: 10 }}>
-            <AddShoppingCart sx={{ fontSize: 60, color: "#cbd5e1" }} />
-            <Typography variant="body1" color="text.secondary" mt={2}>El carrito está vacío</Typography>
+          <Box sx={{ textAlign: "center", mt: 10, opacity: 0.6 }}>
+            <AddShoppingCart sx={{ fontSize: 60, color: "#94a3b8", mb: 2 }} />
+            <Typography variant="body1" fontWeight={600} color="text.secondary">El carrito está vacío</Typography>
           </Box>
         ) : (
           <Stack spacing={2}>
             {cart.map((item, idx) => (
-              <Box key={idx} sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", pb: 2, borderBottom: "1px dashed #e2e8f0" }}>
-                <Box>
-                  <Typography variant="body2" fontWeight={700}>
-                    {item.quantity}x {item.productName}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    {item.variantLabel !== "Única" && item.variantLabel}
-                  </Typography>
-                  {item.additions && item.additions.length > 0 && (
-                    <Typography variant="caption" color="text.secondary" display="block">
-                      + {item.additions.map(a => a.name).join(", ")}
+              <Box key={idx} sx={{ 
+                p: 2, 
+                borderRadius: 3,
+                bgcolor: "#fff",
+                border: "1px solid #f1f5f9",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+                transition: "0.2s",
+                "&:hover": { boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }
+              }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 800, color: "#1e293b" }}>
+                      {item.quantity}x {item.productName}
                     </Typography>
-                  )}
-                  <Typography variant="caption" fontWeight={700} color="primary" display="block" mt={0.5}>
-                    ${item.total}
-                  </Typography>
+                    <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600 }}>
+                      {item.variantLabel !== "Única" && item.variantLabel}
+                    </Typography>
+                  </Box>
+                  <IconButton size="small" color="error" onClick={() => handleRemoveFromCart(idx)} sx={{ bgcolor: "#fff1f2", "&:hover": { bgcolor: "#ffe4e6" } }}>
+                    <DeleteOutline fontSize="small" />
+                  </IconButton>
                 </Box>
-                <IconButton size="small" color="error" onClick={() => handleRemoveFromCart(idx)}>
-                  <DeleteOutline fontSize="small" />
-                </IconButton>
+                {item.additions && item.additions.length > 0 && (
+                  <Box sx={{ mb: 1.5 }}>
+                    {item.additions.map((a, addIdx) => (
+                      <Typography key={addIdx} variant="caption" sx={{ display: "block", color: "#64748b", bgcolor: "#f8fafc", px: 1, py: 0.2, borderRadius: 1, mb: 0.5, width: "fit-content" }}>
+                        + {a.name} (${a.price})
+                      </Typography>
+                    ))}
+                  </Box>
+                )}
+                <Typography variant="subtitle2" sx={{ fontWeight: 900, color: "primary.main", textAlign: "right" }}>
+                  ${item.total}
+                </Typography>
               </Box>
             ))}
           </Stack>
         )}
 
         {/* Order Info Form */}
-        <Box mt={4}>
-          <Typography variant="subtitle2" fontWeight={800} mb={2}>Detalles del Cliente / Pedido</Typography>
-          <Stack spacing={2}>
+        <Box mt={4} sx={{ p: 2, bgcolor: "#f8fafc", borderRadius: 4, border: "1px solid #f1f5f9" }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 2, color: "#475569", fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Información Adicional</Typography>
+          <Stack spacing={2.5}>
             <TextField 
-              label="Nombre del Cliente o Mesa" 
+              label="Cliente / Mesa" 
+              variant="outlined"
               size="small" 
               fullWidth 
               value={customerName} 
               onChange={(e) => setCustomerName(e.target.value)} 
+              sx={{ bgcolor: "#fff", "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
             />
             <TextField 
-              label="Nota para cocina" 
+              label="Notas de Cocina" 
+              variant="outlined"
               size="small" 
               fullWidth 
               multiline 
               rows={2} 
               value={notes} 
               onChange={(e) => setNotes(e.target.value)} 
+              sx={{ bgcolor: "#fff", "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
             />
           </Stack>
         </Box>
       </Box>
 
-      <Box sx={{ p: 3, borderTop: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
-        <Box display="flex" justifyContent="space-between" mb={2}>
-          <Typography variant="h6" fontWeight={800} color="text.secondary">Total</Typography>
-          <Typography variant="h5" fontWeight={900} color="primary.main">${cartTotal}</Typography>
+      <Box sx={{ p: 3, borderTop: "1px solid rgba(226, 232, 240, 0.8)", bgcolor: "rgba(248, 250, 252, 0.8)", backdropFilter: "blur(10px)" }}>
+        <Box display="flex" justifyContent="space-between" mb={2.5} alignItems="flex-end">
+          <Typography variant="body2" sx={{ fontWeight: 700, color: "#64748b" }}>Monto Total</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 950, color: "#0f172a", letterSpacing: "-0.04em" }}>${cartTotal}</Typography>
         </Box>
         <Button 
           variant="contained" 
@@ -223,9 +250,17 @@ export default function CreateOrderPage() {
           size="large" 
           disabled={cart.length === 0} 
           onClick={handleSubmitOrder}
-          sx={{ py: 1.5, borderRadius: 2, fontSize: "1.1rem", fontWeight: 800 }}
+          sx={{ 
+            py: 1.8, 
+            borderRadius: 3.5, 
+            fontSize: "1.1rem", 
+            fontWeight: 900,
+            textTransform: "none",
+            boxShadow: "0 10px 25px -5px rgba(59, 130, 246, 0.4)",
+            "&.Mui-disabled": { bgcolor: "#cbd5e1" }
+          }}
         >
-          Crear Orden
+          Confirmar Orden
         </Button>
       </Box>
     </Box>
@@ -234,16 +269,26 @@ export default function CreateOrderPage() {
   return (
     <Box sx={{ display: "flex", height: "calc(100vh - 80px)", margin: "-24px" }}>
       {/* LEFT SIDE: Products */}
-      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", bgcolor: "#f1f5f9" }}>
-        <Box sx={{ p: { xs: 1.5, md: 3 }, bgcolor: "#fff", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", bgcolor: "#f8fafc" }}>
+        <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#fff", borderBottom: "1px solid rgba(226, 232, 240, 0.8)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Box>
-            <Typography variant={isMobile ? "subtitle1" : "h5"} fontWeight={900}>Nueva Orden</Typography>
-            {!isMobile && <Typography variant="body2" color="text.secondary">Selecciona los productos y crea un pedido rápidamente</Typography>}
+            <Typography variant={isMobile ? "h6" : "h4"} sx={{ fontWeight: 950, color: "#0f172a", letterSpacing: "-0.04em" }}>Nueva Orden</Typography>
+            {!isMobile && <Typography variant="body2" sx={{ color: "#64748b", fontWeight: 500 }}>Gestiona pedidos rápidamente con un sistema premium</Typography>}
           </Box>
-          <Box sx={{ display: "flex", gap: 1 }}>
-            {!isMobile && <Button variant="outlined" size="small" onClick={() => navigate(`/${restaurantId}/orders`)}>Volver</Button>}
+          <Box sx={{ display: "flex", gap: 1.5 }}>
+            {!isMobile && <Button variant="outlined" size="medium" onClick={() => navigate(`/${restaurantId}/orders`)} sx={{ borderRadius: 2, textTransform: "none", fontWeight: 700 }}>Volver</Button>}
             {isMobile && (
-              <Button variant="contained" size="small" onClick={() => setIsDrawerOpen(true)} sx={{ fontWeight: 800 }}>
+              <Button 
+                variant="contained" 
+                size="large" 
+                onClick={() => setIsDrawerOpen(true)} 
+                sx={{ 
+                  borderRadius: 3, 
+                  fontWeight: 900, 
+                  px: 3,
+                  boxShadow: "0 8px 16px rgba(59, 130, 246, 0.25)"
+                }}
+              >
                 Carrito ({cart.length})
               </Button>
             )}
@@ -251,13 +296,35 @@ export default function CreateOrderPage() {
         </Box>
 
         {/* Categories Tabs */}
-        <Box sx={{ px: { xs: 2, md: 3 }, pt: 2, bgcolor: "#fff", borderBottom: "1px solid #e2e8f0" }}>
+        <Box sx={{ px: { xs: 2, md: 3 }, pt: 2, pb: 1, bgcolor: "#fff", borderBottom: "1px solid rgba(226, 232, 240, 0.8)" }}>
           <Tabs 
             value={activeCategory} 
             onChange={handleTabChange} 
             variant="scrollable"
             scrollButtons="auto"
-            sx={{ "& .MuiTab-root": { textTransform: "none", fontWeight: 600, fontSize: "0.95rem" } }}
+            sx={{ 
+              minHeight: 48,
+              "& .MuiTabs-indicator": { display: "none" },
+              "& .MuiTab-root": { 
+                textTransform: "none", 
+                fontWeight: 700, 
+                fontSize: "0.9rem",
+                minHeight: 40,
+                px: 2.5,
+                mr: 1,
+                borderRadius: 2.5,
+                color: "#64748b",
+                transition: "0.2s",
+                "&.Mui-selected": { 
+                  bgcolor: "primary.main", 
+                  color: "#fff",
+                  boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)"
+                },
+                "&:hover:not(.Mui-selected)": {
+                  bgcolor: "#f1f5f9"
+                }
+              } 
+            }}
           >
             <Tab label="Todas" value="Todas" />
             {categories.map((cat) => (
@@ -267,8 +334,8 @@ export default function CreateOrderPage() {
         </Box>
 
         {/* Product Grid */}
-        <Box sx={{ flex: 1, overflowY: "auto", p: { xs: 2, md: 3 } }}>
-          <Grid container spacing={2}>
+        <Box sx={{ flex: 1, overflowY: "auto", p: { xs: 2, md: 4 } }}>
+          <Grid container spacing={3}>
             {filteredProducts.map(product => {
               const mainVariant = product.variants[0];
               if (!mainVariant) return null;
@@ -278,25 +345,45 @@ export default function CreateOrderPage() {
                   <Card 
                     sx={{ 
                       cursor: "pointer", 
-                      borderRadius: 3, 
-                      transition: "0.2s", 
-                      "&:hover": { transform: "translateY(-4px)", boxShadow: 3 } 
+                      borderRadius: 5, 
+                      overflow: "hidden",
+                      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)", 
+                      border: "1px solid #f1f5f9",
+                      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)",
+                      "&:hover": { 
+                        transform: "translateY(-8px)", 
+                        boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
+                        borderColor: "primary.light"
+                      } 
                     }}
                     onClick={() => handleProductClick(product)}
                   >
-                    <Box sx={{ position: "relative", paddingTop: "75%", bgcolor: "#e2e8f0" }}>
+                    <Box sx={{ position: "relative", paddingTop: "85%", bgcolor: "#e2e8f0" }}>
                       <CardMedia
                         component="img"
                         image={mainVariant.image || "https://placehold.co/400?text=No+Image"}
                         alt={product.name}
                         sx={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", objectFit: "cover" }}
                       />
+                      <Box sx={{ 
+                        position: "absolute", 
+                        top: 12, 
+                        right: 12, 
+                        bgcolor: "rgba(255, 255, 255, 0.9)", 
+                        backdropFilter: "blur(4px)",
+                        px: 1.5, 
+                        py: 0.5, 
+                        borderRadius: 2,
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+                      }}>
+                        <Typography variant="caption" sx={{ fontWeight: 900, color: "primary.main" }}>
+                          ${Math.min(...product.variants.map((v) => v.price))}
+                        </Typography>
+                      </Box>
                     </Box>
-                    <CardContent sx={{ p: 1.5, "&:last-child": { pb: 1.5 } }}>
-                      <Typography variant="subtitle2" fontWeight={700} noWrap>{product.name}</Typography>
-                      <Typography variant="body2" color="primary.main" fontWeight={800}>
-                        ${Math.min(...product.variants.map((v) => v.price))}
-                      </Typography>
+                    <CardContent sx={{ p: 2, bgcolor: "#fff" }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "#1e293b", mb: 0.5, lineHeight: 1.2, height: "2.4em", overflow: "hidden" }}>{product.name}</Typography>
+                      <Typography variant="caption" sx={{ color: "#94a3b8", display: "block" }}>{product.category}</Typography>
                     </CardContent>
                   </Card>
                 </Grid>
@@ -324,28 +411,59 @@ export default function CreateOrderPage() {
           fullWidth
           fullScreen={isMobile}
         >
-          <DialogTitle sx={{ fontWeight: 800, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <DialogTitle sx={{ 
+            p: 3, 
+            fontWeight: 900, 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "center",
+            bgcolor: "#fff",
+            color: "#0f172a",
+            letterSpacing: "-0.02em"
+          }}>
             {selectedProduct.name}
-            {isMobile && (
-              <IconButton onClick={handleCloseDialog} size="small">
-                <Close />
-              </IconButton>
-            )}
+            <IconButton onClick={handleCloseDialog} size="small" sx={{ bgcolor: "#f1f5f9" }}>
+              <Close />
+            </IconButton>
           </DialogTitle>
-          <DialogContent dividers>
+          <DialogContent dividers sx={{ p: 4, bgcolor: "#fcfdff" }}>
             {/* Quantity */}
-            <Typography variant="subtitle2" fontWeight={800} mb={1}>Cantidad:</Typography>
-            <Stack direction="row" alignItems="center" spacing={2} mb={3}>
-              <IconButton onClick={() => setQuantity(Math.max(1, quantity - 1))} sx={{ bgcolor: "grey.100" }}><Remove /></IconButton>
-              <Typography variant="h6" fontWeight={800}>{quantity}</Typography>
-              <IconButton onClick={() => setQuantity(quantity + 1)} sx={{ bgcolor: "grey.100" }}><Add /></IconButton>
+            <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 2, color: "#64748b", textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.1em" }}>Seleccionar Cantidad</Typography>
+            <Stack direction="row" alignItems="center" spacing={3} mb={5} justifyContent="center">
+              <IconButton 
+                onClick={() => setQuantity(Math.max(1, quantity - 1))} 
+                sx={{ 
+                  width: 56, 
+                  height: 56, 
+                  bgcolor: "#fff", 
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                  border: "1px solid #f1f5f9",
+                  "&:hover": { bgcolor: "#f8fafc" }
+                }}
+              >
+                <Remove />
+              </IconButton>
+              <Typography variant="h3" sx={{ fontWeight: 950, minWidth: 60, textAlign: "center", color: "#0f172a" }}>{quantity}</Typography>
+              <IconButton 
+                onClick={() => setQuantity(quantity + 1)} 
+                sx={{ 
+                  width: 56, 
+                  height: 56, 
+                  bgcolor: "primary.main", 
+                  color: "#fff",
+                  boxShadow: "0 8px 16px rgba(59, 130, 246, 0.3)",
+                  "&:hover": { bgcolor: "primary.dark" }
+                }}
+              >
+                <Add />
+              </IconButton>
             </Stack>
 
             {/* Additions */}
             {allAdditions.length > 0 && (
               <>
-                <Typography variant="subtitle2" fontWeight={800} mb={1}>Adiciones:</Typography>
-                <Grid container spacing={1}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 2, color: "#64748b", textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.1em" }}>Complementos (Adiciones)</Typography>
+                <Grid container spacing={1.5}>
                   {(() => {
                     const filtered = allAdditions.filter(a => 
                       !a.category || 
@@ -359,48 +477,55 @@ export default function CreateOrderPage() {
                       <>
                         {showAll && (
                           <Grid size={12}>
-                            <Typography variant="caption" color="warning.main" sx={{ mb: 1, display: "block" }}>
-                              Mostrando todas las adiciones (no hay específicas para esta categoría).
-                            </Typography>
+                            <Box sx={{ bgcolor: "#fff7ed", p: 1.5, borderRadius: 2, border: "1px solid #ffedd5", mb: 2 }}>
+                              <Typography variant="caption" sx={{ color: "#9a3412", fontWeight: 700, display: "block" }}>
+                                ℹ️ Mostrando todas las adiciones (sin coincidencia de categoría).
+                              </Typography>
+                            </Box>
                           </Grid>
                         )}
-                        {toShow.map((addition) => (
-                          <Grid size={{ xs: 12, sm: 6 }} key={addition.id}>
-                            <FormControlLabel
-                              sx={{ 
-                                border: "1px solid #e2e8f0", 
-                                borderRadius: 2, 
-                                m: 0, 
-                                mb: 1, 
-                                width: "100%", 
-                                p: 0.5,
-                                bgcolor: selectedAdditions.some(a => a.id === addition.id) ? "primary.50" : "transparent"
-                              }}
-                              control={
-                                <Checkbox 
-                                  checked={selectedAdditions.some(a => a.id === addition.id)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedAdditions([...selectedAdditions, addition]);
-                                    } else {
-                                      setSelectedAdditions(selectedAdditions.filter(a => a.id !== addition.id));
-                                    }
-                                  }}
-                                />
-                              }
-                              label={
+                        {toShow.map((addition) => {
+                          const isSelected = selectedAdditions.some(a => a.id === addition.id);
+                          return (
+                            <Grid size={{ xs: 12, sm: 6 }} key={addition.id}>
+                              <Box 
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setSelectedAdditions(selectedAdditions.filter(a => a.id !== addition.id));
+                                  } else {
+                                    setSelectedAdditions([...selectedAdditions, addition]);
+                                  }
+                                }}
+                                sx={{ 
+                                  cursor: "pointer",
+                                  border: "2px solid", 
+                                  borderColor: isSelected ? "primary.main" : "#f1f5f9", 
+                                  borderRadius: 4, 
+                                  p: 2,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  bgcolor: isSelected ? "rgba(59, 130, 246, 0.04)" : "#fff",
+                                  transition: "0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                                  "&:hover": { borderColor: isSelected ? "primary.main" : "#e2e8f0", transform: "scale(1.02)" }
+                                }}
+                              >
                                 <Box>
-                                  <Typography variant="body2" fontWeight={600}>
+                                  <Typography variant="body2" sx={{ fontWeight: 800, color: isSelected ? "primary.main" : "#1e293b" }}>
                                     {addition.name}
                                   </Typography>
-                                  <Typography variant="caption" color="primary.main">
+                                  <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 700 }}>
                                     +${addition.price}
                                   </Typography>
                                 </Box>
-                              }
-                            />
-                          </Grid>
-                        ))}
+                                <Checkbox 
+                                  checked={isSelected}
+                                  sx={{ p: 0.5, color: "#e2e8f0" }}
+                                />
+                              </Box>
+                            </Grid>
+                          );
+                        })}
                       </>
                     );
                   })()}
@@ -409,10 +534,22 @@ export default function CreateOrderPage() {
             )}
 
           </DialogContent>
-          <DialogActions sx={{ p: 2, bgcolor: "#f8fafc" }}>
-            <Button onClick={handleCloseDialog} color="inherit">Cancelar</Button>
-            <Button variant="contained" onClick={handleAddToCart} sx={{ borderRadius: 2, fontWeight: 700, flex: isMobile ? 1 : "initial" }}>
-              Agregar (${((selectedVariant?.price || 0) + selectedAdditions.reduce((acc, a) => acc + a.price, 0)) * quantity})
+          <DialogActions sx={{ p: 3, bgcolor: "#fff", display: "flex", gap: 2 }}>
+            <Button onClick={handleCloseDialog} sx={{ px: 3, fontWeight: 700, borderRadius: 3, color: "#64748b", textTransform: "none" }}>Descartar</Button>
+            <Button 
+              variant="contained" 
+              onClick={handleAddToCart} 
+              sx={{ 
+                borderRadius: 4, 
+                fontWeight: 900, 
+                flex: 1, 
+                py: 1.5,
+                fontSize: "1rem",
+                textTransform: "none",
+                boxShadow: "0 10px 20px -5px rgba(59, 130, 246, 0.3)"
+              }}
+            >
+              Agregar a la Orden (${((selectedVariant?.price || 0) + selectedAdditions.reduce((acc, a) => acc + a.price, 0)) * quantity})
             </Button>
           </DialogActions>
         </Dialog>

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo, Fragment } from "react";
 import { useParams } from "react-router-dom";
 import {
     Box,
@@ -22,6 +22,12 @@ import {
     IconButton,
     Alert,
     CircularProgress,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    Tabs,
+    Tab,
+    Collapse,
 } from "@mui/material";
 import {
     AttachMoney,
@@ -32,6 +38,9 @@ import {
     History,
     ReceiptLong,
     CalendarMonth,
+    Close as CloseIcon,
+    KeyboardArrowDown as KeyboardArrowDownIcon,
+    KeyboardArrowUp as KeyboardArrowUpIcon,
 } from "@mui/icons-material";
 import { useCollection } from "../hooks/useCollection";
 import { useAuth } from "../hooks/useAuth";
@@ -82,6 +91,8 @@ export default function CashClosingPage() {
     const [notes, setNotes] = useState("");
     const [loading, setLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState("");
+    const [selectedClosing, setSelectedClosing] = useState<CashClosing | null>(null);
+    const [dialogTab, setDialogTab] = useState(0);
 
     // --- NUEVOS ESTADOS PARA DESGLOSE ---
     const [denominations, setDenominations] = useState({
@@ -111,6 +122,23 @@ export default function CashClosingPage() {
             return d >= today && d < tomorrow && order.state === "completada";
         });
     }, [orders]);
+
+    const selectedClosingOrders = useMemo(() => {
+        if (!selectedClosing) return [];
+        const targetParts = selectedClosing.date.split('-');
+        if (targetParts.length === 3) {
+            const startOfDay = new Date(Number(targetParts[0]), Number(targetParts[1]) - 1, Number(targetParts[2]));
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(startOfDay);
+            endOfDay.setDate(startOfDay.getDate() + 1);
+            
+            return orders.filter(order => {
+                const d = toDate(order);
+                return d >= startOfDay && d < endOfDay && order.state === "completada";
+            }).sort((a,b) => toDate(b).getTime() - toDate(a).getTime());
+        }
+        return [];
+    }, [orders, selectedClosing]);
 
     // Resumen de ventas por método de pago
     const summary = useMemo(() => {
@@ -675,7 +703,7 @@ export default function CashClosingPage() {
                                                 return dB.getTime() - dA.getTime();
                                             })
                                             .map((c) => (
-                                                <TableRow key={c.id} hover>
+                                                <TableRow key={c.id} hover onClick={() => setSelectedClosing(c)} sx={{ cursor: 'pointer' }}>
                                                     <TableCell>
                                                         <Typography variant="body2" fontWeight={700}>
                                                             {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : c.date}
@@ -784,9 +812,267 @@ export default function CashClosingPage() {
                     </Card>
                 </Grid>
             </Grid>
+
+            {/* DIÁLOGO DETALLES DE CIERRE */}
+            <Dialog 
+                open={!!selectedClosing} 
+                onClose={() => { setSelectedClosing(null); setDialogTab(0); }} 
+                maxWidth="md" 
+                fullWidth
+                PaperProps={{ sx: { borderRadius: 4, overflow: 'hidden' } }}
+            >
+                <DialogTitle sx={{ bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                        <Typography variant="h5" fontWeight={900} color="primary.main">
+                            Detalle de Cierre
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                            {selectedClosing?.date} • Cajero: {selectedClosing?.closedBy?.name}
+                        </Typography>
+                    </Box>
+                    <IconButton onClick={() => { setSelectedClosing(null); setDialogTab(0); }} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0', '&:hover': { bgcolor: '#f1f5f9' } }}>
+                        <CloseIcon />
+                    </IconButton>
+                </DialogTitle>
+
+                <Tabs 
+                    value={dialogTab} 
+                    onChange={(e, v) => setDialogTab(v)} 
+                    variant="fullWidth" 
+                    sx={{ 
+                        borderBottom: 1, 
+                        borderColor: 'divider',
+                        bgcolor: '#f8fafc',
+                        '& .MuiTab-root': { fontWeight: 800, textTransform: 'none', fontSize: '0.95rem' }
+                    }}
+                >
+                    <Tab label="Resumen General" />
+                    <Tab label={`Órdenes (${selectedClosingOrders.length})`} />
+                    <Tab label="Desglose Efectivo" />
+                </Tabs>
+
+                <DialogContent sx={{ p: { xs: 2, md: 4 }, bgcolor: '#ffffff' }}>
+                    {selectedClosing && dialogTab === 0 && (
+                        <Grid container spacing={3}>
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card variant="outlined" sx={{ borderRadius: 3, height: '100%', borderColor: '#e2e8f0' }}>
+                                    <CardContent>
+                                        <Typography variant="subtitle1" fontWeight={900} color="primary.dark" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <ReceiptLong fontSize="small" /> Resumen de Ventas
+                                        </Typography>
+                                        <Stack spacing={1.5} mt={2}>
+                                            <Stack direction="row" justifyContent="space-between">
+                                                <Typography variant="body2" color="text.secondary" fontWeight={700}>Base de Apertura</Typography>
+                                                <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.openingBalance)}</Typography>
+                                            </Stack>
+                                            <Stack direction="row" justifyContent="space-between">
+                                                <Typography variant="body2" color="text.secondary" fontWeight={700}>Ventas Totales Netas</Typography>
+                                                <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.totalSales)}</Typography>
+                                            </Stack>
+                                            <Stack direction="row" justifyContent="space-between">
+                                                <Typography variant="body2" color="text.secondary" fontWeight={700}>Descuentos Guías</Typography>
+                                                <Typography variant="body2" fontWeight={800} color="error.main">{formatCOP(selectedClosing.totalGuiaDiscount || 0)}</Typography>
+                                            </Stack>
+                                            <Stack direction="row" justifyContent="space-between">
+                                                <Typography variant="body2" color="text.secondary" fontWeight={700}>Egresos Registrados</Typography>
+                                                <Typography variant="body2" fontWeight={800} color="error.main">{formatCOP(selectedClosing.totalExpenses || 0)}</Typography>
+                                            </Stack>
+                                            <Divider sx={{ my: 0.5 }} />
+                                            <Stack direction="row" justifyContent="space-between">
+                                                <Typography variant="body1" color="primary.main" fontWeight={900}>Efectivo Teórico</Typography>
+                                                <Typography variant="body1" fontWeight={900}>
+                                                    {formatCOP((selectedClosing.totals?.efectivo || 0) + (selectedClosing.openingBalance || 0) - (selectedClosing.totalExpenses || 0))}
+                                                </Typography>
+                                            </Stack>
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card variant="outlined" sx={{ borderRadius: 3, height: '100%', borderColor: '#e2e8f0' }}>
+                                    <CardContent>
+                                        <Typography variant="subtitle1" fontWeight={900} color="primary.dark" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <AccountBalance fontSize="small" /> Diferencias Totales
+                                        </Typography>
+                                        <Stack spacing={2} mt={2}>
+                                            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: (selectedClosing.difference || 0) < 0 ? '#fef2f2' : (selectedClosing.difference || 0) > 0 ? '#f0fdf4' : '#f8fafc' }}>
+                                                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                                    <Typography variant="caption" fontWeight={700} color="text.secondary">Diferencia Efectivo</Typography>
+                                                    <Typography variant="subtitle2" fontWeight={900} color={(selectedClosing.difference || 0) < 0 ? 'error.main' : (selectedClosing.difference || 0) > 0 ? 'success.main' : 'text.primary'}>
+                                                        {formatCOP(selectedClosing.difference || 0)}
+                                                    </Typography>
+                                                </Stack>
+                                            </Box>
+                                            
+                                            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: (selectedClosing.cardDifference || 0) < 0 ? '#fef2f2' : (selectedClosing.cardDifference || 0) > 0 ? '#f0fdf4' : '#f8fafc' }}>
+                                                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                                    <Box>
+                                                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">Tarjeta Sistema</Typography>
+                                                        <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.totals?.tarjeta || 0)}</Typography>
+                                                    </Box>
+                                                    <Box sx={{ textAlign: 'right' }}>
+                                                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">Diferencia Tarjeta</Typography>
+                                                        <Typography variant="subtitle2" fontWeight={900} color={(selectedClosing.cardDifference || 0) < 0 ? 'error.main' : (selectedClosing.cardDifference || 0) > 0 ? 'success.main' : 'text.primary'}>
+                                                            {formatCOP(selectedClosing.cardDifference || 0)}
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </Box>
+
+                                            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: (selectedClosing.transferDifference || 0) < 0 ? '#fef2f2' : (selectedClosing.transferDifference || 0) > 0 ? '#f0fdf4' : '#f8fafc' }}>
+                                                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                                    <Box>
+                                                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">Transf. Sistema</Typography>
+                                                        <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.totals?.transferencia || 0)}</Typography>
+                                                    </Box>
+                                                    <Box sx={{ textAlign: 'right' }}>
+                                                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">Diferencia Transf.</Typography>
+                                                        <Typography variant="subtitle2" fontWeight={900} color={(selectedClosing.transferDifference || 0) < 0 ? 'error.main' : (selectedClosing.transferDifference || 0) > 0 ? 'success.main' : 'text.primary'}>
+                                                            {formatCOP(selectedClosing.transferDifference || 0)}
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </Box>
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+
+                            {selectedClosing.notes && (
+                                <Grid size={{ xs: 12 }}>
+                                    <Alert severity="info" variant="outlined" sx={{ borderRadius: 3, border: '1px solid #bae6fd', bgcolor: '#f0f9ff' }}>
+                                        <Typography variant="caption" fontWeight={800} color="info.dark" display="block">Notas / Observaciones:</Typography>
+                                        <Typography variant="body2" color="text.primary">{selectedClosing.notes}</Typography>
+                                    </Alert>
+                                </Grid>
+                            )}
+                        </Grid>
+                    )}
+
+                    {selectedClosing && dialogTab === 1 && (
+                        <Box>
+                            {selectedClosingOrders.length === 0 ? (
+                                <Box sx={{ py: 6, textAlign: 'center' }}>
+                                    <Typography variant="body1" color="text.secondary" fontWeight={600}>No se encontraron órdenes para este día.</Typography>
+                                </Box>
+                            ) : (
+                                <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 3, maxHeight: 450 }}>
+                                    <Table stickyHeader size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell padding="checkbox" sx={{ bgcolor: '#f8fafc' }} />
+                                                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Orden</TableCell>
+                                                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Hora</TableCell>
+                                                <TableCell sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Método</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 800, bgcolor: '#f8fafc' }}>Total</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {selectedClosingOrders.map((order) => (
+                                                <DialogOrderRow key={order.id} order={order} toDate={toDate} />
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            )}
+                        </Box>
+                    )}
+
+                    {selectedClosing && dialogTab === 2 && (
+                        <Grid container spacing={3}>
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card variant="outlined" sx={{ borderRadius: 3, borderColor: '#e2e8f0', height: '100%' }}>
+                                    <CardContent>
+                                        <Typography variant="subtitle1" fontWeight={800} color="primary" gutterBottom>
+                                            Desglose de Efectivo Físico
+                                        </Typography>
+                                        <Table size="small">
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell sx={{ fontWeight: 700, color: "text.secondary" }}>Denominación</TableCell>
+                                                    <TableCell align="center" sx={{ fontWeight: 700, color: "text.secondary" }}>Cnt</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 700, color: "text.secondary" }}>Total</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {[
+                                                    { label: "$100.000", key: "bills100000", val: 100000 },
+                                                    { label: "$50.000", key: "bills50000", val: 50000 },
+                                                    { label: "$20.000", key: "bills20000", val: 20000 },
+                                                    { label: "$10.000", key: "bills10000", val: 10000 },
+                                                    { label: "$5.000", key: "bills5000", val: 5000 },
+                                                    { label: "$2.000", key: "bills2000", val: 2000 },
+                                                    { label: "$1.000", key: "coins1000", val: 1000 },
+                                                    { label: "$500", key: "coins500", val: 500 },
+                                                    { label: "$200", key: "coins200", val: 200 },
+                                                    { label: "$100", key: "coins100", val: 100 },
+                                                ].map(d => {
+                                                    const qty = (selectedClosing.denominations as any)?.[d.key] || 0;
+                                                    if (qty === 0) return null;
+                                                    return (
+                                                        <TableRow key={d.key}>
+                                                            <TableCell sx={{ fontWeight: 600 }}>{d.label}</TableCell>
+                                                            <TableCell align="center">{qty}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCOP(qty * d.val)}</TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                                <TableRow sx={{ bgcolor: "#f0fdf4" }}>
+                                                    <TableCell colSpan={2} sx={{ fontWeight: 800 }}>TOTAL RECOLECTADO</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 900, color: "success.dark" }}>
+                                                        {formatCOP(selectedClosing.actualCash)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                        </Table>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                            
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Card variant="outlined" sx={{ borderRadius: 3, borderColor: '#e2e8f0', height: '100%' }}>
+                                    <CardContent>
+                                        <Typography variant="subtitle1" fontWeight={800} color="error.main" gutterBottom>
+                                            Detalle de Egresos
+                                        </Typography>
+                                        {(!selectedClosing.expenses || selectedClosing.expenses.length === 0) ? (
+                                            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', mt: 2 }}>
+                                                No se registraron egresos en este cierre.
+                                            </Typography>
+                                        ) : (
+                                            <Table size="small">
+                                                <TableHead>
+                                                    <TableRow>
+                                                        <TableCell sx={{ fontWeight: 700, color: "text.secondary" }}>Descripción</TableCell>
+                                                        <TableCell align="right" sx={{ fontWeight: 700, color: "text.secondary" }}>Monto</TableCell>
+                                                    </TableRow>
+                                                </TableHead>
+                                                <TableBody>
+                                                    {selectedClosing.expenses.map((exp, idx) => (
+                                                        <TableRow key={idx}>
+                                                            <TableCell sx={{ fontWeight: 600 }}>{exp.description}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCOP(exp.amount)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                    <TableRow sx={{ bgcolor: "#fef2f2" }}>
+                                                        <TableCell sx={{ fontWeight: 800 }}>TOTAL EGRESOS</TableCell>
+                                                        <TableCell align="right" sx={{ fontWeight: 900, color: "error.main" }}>{formatCOP(selectedClosing.totalExpenses || 0)}</TableCell>
+                                                    </TableRow>
+                                                </TableBody>
+                                            </Table>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </Grid>
+                        </Grid>
+                    )}
+                </DialogContent>
+            </Dialog>
         </Box>
     );
 }
+
 
 /* =========================
    SUB-COMPONENTES
@@ -835,5 +1121,79 @@ function DenominationInput({ label, value, onChange }: { label: string; value: n
                 sx={{ bgcolor: "#fff", px: 1, borderRadius: 1 }}
             />
         </Stack>
+    );
+}
+
+function DialogOrderRow({ order, toDate }: { order: Order; toDate: (order: any) => Date }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Fragment>
+            <TableRow hover onClick={() => setOpen(!open)} sx={{ cursor: 'pointer', '& > *': { borderBottom: 'unset' } }}>
+                <TableCell padding="checkbox">
+                    <IconButton size="small">
+                        {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                    </IconButton>
+                </TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{order.name}</TableCell>
+                <TableCell color="text.secondary">
+                    {toDate(order).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </TableCell>
+                <TableCell>
+                    <Chip label={order.paymentMethod} size="small" variant="outlined" sx={{ fontWeight: 800, fontSize: "0.65rem", textTransform: "capitalize" }} />
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                    {formatCOP(order.total)}
+                </TableCell>
+            </TableRow>
+            <TableRow>
+                <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={5}>
+                    <Collapse in={open} timeout="auto" unmountOnExit>
+                        <Box sx={{ margin: 1.5, p: 2, bgcolor: '#f1f5f9', borderRadius: 3 }}>
+                            <Typography variant="subtitle2" gutterBottom component="div" fontWeight={800} color="primary.dark">
+                                Productos Incluidos
+                            </Typography>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Cant.</TableCell>
+                                        <TableCell sx={{ fontWeight: 700, color: 'text.secondary' }}>Producto</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, color: 'text.secondary' }}>Precio</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, color: 'text.secondary' }}>Subtotal</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {(order.products || []).map((product, idx) => (
+                                        <TableRow key={idx} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                            <TableCell sx={{ fontWeight: 800 }}>{product.quantity}x</TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2" fontWeight={800} color="text.primary">{product.productName}</Typography>
+                                                {product.variantLabel && (
+                                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, fontStyle: 'italic' }}>Variante: {product.variantLabel}</Typography>
+                                                )}
+                                                {product.additions && product.additions.length > 0 && (
+                                                    <Typography variant="caption" color="text.secondary" display="block" sx={{ fontStyle: 'italic' }}>
+                                                        Adiciones: {product.additions.map((a: any) => a.name).join(', ')}
+                                                    </Typography>
+                                                )}
+                                            </TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 600 }}>{formatCOP(product.price)}</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 800, color: 'primary.main' }}>{formatCOP(product.total || (product.price * product.quantity))}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {(!order.products || order.products.length === 0) && (
+                                        <TableRow>
+                                            <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary', fontStyle: 'italic', py: 2 }}>
+                                                No hay productos registrados en esta orden.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </Box>
+                    </Collapse>
+                </TableCell>
+            </TableRow>
+        </Fragment>
     );
 }
