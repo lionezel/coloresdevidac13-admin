@@ -333,7 +333,7 @@ export default function Dashboard() {
 
         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Metric
-            title="Ingresos Tarjeta"
+            title="Ingresos Tarjeta (-5% Comis.)"
             value={formatCOP(analytics.paymentRevenue.tarjeta)}
             icon={<CreditCard />}
             color="#1976d2"

@@ -77,6 +77,8 @@ export default function CashClosingPage() {
 
     // Estados locales
     const [openingBalance, setOpeningBalance] = useState<number>(0);
+    const [actualTransfer, setActualTransfer] = useState<number>(0);
+    const [actualCard, setActualCard] = useState<number>(0);
     const [notes, setNotes] = useState("");
     const [loading, setLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState("");
@@ -141,6 +143,9 @@ export default function CashClosingPage() {
             }
         });
 
+        // Aplicar retención del 5% a las tarjetas (comisión bancaria)
+        totals.tarjeta = totals.tarjeta * 0.95;
+
         // Venta Neta = (Efectivo + Tarjeta + Transferencia) - Descuento Guía
         totals.totalSales = (totals.efectivo + totals.tarjeta + totals.transferencia) - totals.totalGuiaDiscount;
 
@@ -174,6 +179,9 @@ export default function CashClosingPage() {
     const actualCash = totalFromBreakdown;
     const difference = useMemo(() => actualCash - expectedCash, [actualCash, expectedCash]);
 
+    const transferDifference = useMemo(() => actualTransfer - summary.transferencia, [actualTransfer, summary.transferencia]);
+    const cardDifference = useMemo(() => actualCard - summary.tarjeta, [actualCard, summary.tarjeta]);
+
     const handleSaveClosing = async () => {
         if (!restaurantId || !userDoc) return;
 
@@ -189,6 +197,10 @@ export default function CashClosingPage() {
                 openingBalance: Number(openingBalance),
                 actualCash: Number(actualCash),
                 difference: difference,
+                actualTransfer: Number(actualTransfer),
+                transferDifference: transferDifference,
+                actualCard: Number(actualCard),
+                cardDifference: cardDifference,
                 totals: {
                     efectivo: summary.efectivo,
                     tarjeta: summary.tarjeta,
@@ -207,6 +219,8 @@ export default function CashClosingPage() {
             await saveClosing(closingData);
             setSuccessMsg("Cierre de caja guardado exitosamente.");
             setOpeningBalance(0);
+            setActualTransfer(0);
+            setActualCard(0);
             setDenominations({
                 coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
                 bills2000: 0, bills5000: 0, bills10000: 0, bills20000: 0, bills50000: 0, bills100000: 0
@@ -254,7 +268,7 @@ export default function CashClosingPage() {
                             <SummaryCard title="Efectivo" value={summary.efectivo} icon={<LocalAtm />} color="#10b981" />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                            <SummaryCard title="Tarjeta" value={summary.tarjeta} icon={<CreditCard />} color="#3b82f6" />
+                            <SummaryCard title="Tarjeta (-5% Comis.)" value={summary.tarjeta} icon={<CreditCard />} color="#3b82f6" />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <SummaryCard title="Transferencia" value={summary.transferencia} icon={<AccountBalance />} color="#f59e0b" />
@@ -455,52 +469,143 @@ export default function CashClosingPage() {
                                     helperText="Dinero con el que inició el turno."
                                 />
 
-                                <Box sx={{ p: 2, bgcolor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Typography variant="body2" fontWeight={700} color="text.secondary">Efectivo Real (Desglose):</Typography>
-                                    <Typography variant="h6" fontWeight={900} color="primary.main">{formatCOP(actualCash)}</Typography>
-                                </Box>
+                                <TextField
+                                    label="Saldo Real en Cuenta (Transferencias)"
+                                    type="number"
+                                    fullWidth
+                                    variant="outlined"
+                                    value={actualTransfer || ""}
+                                    onChange={(e) => setActualTransfer(Number(e.target.value))}
+                                    InputProps={{
+                                        startAdornment: <AccountBalance sx={{ color: "text.disabled", mr: 1 }} />,
+                                    }}
+                                    helperText="Sume Nequi, Daviplata y Bancolombia."
+                                />
 
-                                <Box sx={{ p: 2, bgcolor: "#f1f5f9", borderRadius: 3 }}>
+                                <Grid container spacing={2} alignItems="center">
+                                    <Grid size={{ xs: 6 }}>
+                                        <Typography variant="caption" color="text.secondary" fontWeight={700}>Efectivo Sistema (Teórico):</Typography>
+                                        <Typography variant="body1" fontWeight={800}>{formatCOP(expectedCash)}</Typography>
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <Typography variant="caption" color="text.secondary" fontWeight={700}>Efectivo Real (Desglose):</Typography>
+                                        <Typography variant="body1" fontWeight={900} color="primary.main">{formatCOP(actualCash)}</Typography>
+                                    </Grid>
+                                </Grid>
+
+                                <Divider sx={{ my: 1 }} />
+
+                                <Grid container spacing={2} alignItems="center">
+                                    <Grid size={{ xs: 6 }}>
+                                        <Typography variant="caption" color="text.secondary" fontWeight={700}>Tarjeta Sistema:</Typography>
+                                        <Typography variant="body1" fontWeight={800}>{formatCOP(summary.tarjeta)}</Typography>
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <TextField
+                                            label="Tarjeta Real"
+                                            type="number"
+                                            fullWidth
+                                            size="small"
+                                            variant="outlined"
+                                            value={actualCard || ""}
+                                            onChange={(e) => setActualCard(Number(e.target.value))}
+                                            InputProps={{
+                                                startAdornment: <CreditCard sx={{ fontSize: 18, color: "text.disabled", mr: 1 }} />,
+                                            }}
+                                        />
+                                    </Grid>
+                                </Grid>
+
+                                <Divider sx={{ my: 1 }} />
+
+                                <Grid container spacing={2} alignItems="center">
+                                    <Grid size={{ xs: 6 }}>
+                                        <Typography variant="caption" color="text.secondary" fontWeight={700}>Transferencia Sistema:</Typography>
+                                        <Typography variant="body1" fontWeight={800}>{formatCOP(summary.transferencia)}</Typography>
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <TextField
+                                            label="Transferencia Real"
+                                            type="number"
+                                            fullWidth
+                                            size="small"
+                                            variant="outlined"
+                                            value={actualTransfer || ""}
+                                            onChange={(e) => setActualTransfer(Number(e.target.value))}
+                                            InputProps={{
+                                                startAdornment: <AccountBalance sx={{ fontSize: 18, color: "text.disabled", mr: 1 }} />,
+                                            }}
+                                        />
+                                    </Grid>
+                                </Grid>
+
+                                <Box sx={{ p: 2, bgcolor: "#f1f5f9", borderRadius: 3, mt: 3 }}>
                                     <Stack spacing={1}>
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Ventas Brutas:</Typography>
-                                            <Typography variant="caption" fontWeight={700}>{formatCOP(summary.totalGross)}</Typography>
-                                        </Stack>
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Typography variant="caption" color="error.main" fontWeight={600}>(-) Desc. Guías:</Typography>
-                                            <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(summary.totalGuiaDiscount)}</Typography>
-                                        </Stack>
-                                        <Divider sx={{ my: 0.5 }} />
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Typography variant="caption" color="error.main" fontWeight={600}>(-) Egresos:</Typography>
-                                            <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(totalExpenses)}</Typography>
-                                        </Stack>
-                                        <Divider sx={{ my: 0.5 }} />
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Typography variant="body2" color="text.primary" fontWeight={800}>Venta Neta:</Typography>
-                                            <Typography variant="body2" fontWeight={900}>{formatCOP(summary.totalSales)}</Typography>
-                                        </Stack>
-                                        <Divider sx={{ my: 1 }} />
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Typography variant="body2" color="text.secondary" fontWeight={600}>Teórico:</Typography>
-                                            <Typography variant="body2" fontWeight={800}>{formatCOP(expectedCash)}</Typography>
-                                        </Stack>
-                                    </Stack>
+                                            <Typography variant="subtitle2" fontWeight={800} color="primary.dark">RESUMEN DE VENTAS</Typography>
+                                            <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                <Typography variant="caption" color="text.secondary" fontWeight={600}>Ventas Brutas:</Typography>
+                                                <Typography variant="caption" fontWeight={700}>{formatCOP(summary.totalGross)}</Typography>
+                                            </Stack>
+                                            <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                <Typography variant="caption" color="error.main" fontWeight={600}>(-) Desc. Guías:</Typography>
+                                                <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(summary.totalGuiaDiscount)}</Typography>
+                                            </Stack>
+                                            <Divider sx={{ my: 0.5 }} />
+                                            <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                <Typography variant="caption" color="error.main" fontWeight={600}>(-) Egresos:</Typography>
+                                                <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(totalExpenses)}</Typography>
+                                            </Stack>
+                                            <Divider sx={{ my: 0.5 }} />
+                                            <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                <Typography variant="body2" color="text.primary" fontWeight={800}>Venta Neta:</Typography>
+                                                <Typography variant="body2" fontWeight={900}>{formatCOP(summary.totalSales)}</Typography>
+                                            </Stack>
+                                            <Divider sx={{ my: 1 }} />
+                                            <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                <Typography variant="body2" color="text.secondary" fontWeight={600}>Teórico en Caja:</Typography>
+                                                <Typography variant="body2" fontWeight={800}>{formatCOP(expectedCash)}</Typography>
+                                            </Stack>
 
-                                    <Divider sx={{ my: 1.5 }} />
+                                            <Divider sx={{ my: 1.5 }} />
 
-                                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                                        <Typography variant="subtitle2" fontWeight={800}>Diferencia:</Typography>
-                                        <Box sx={{ textAlign: 'right' }}>
-                                            <Typography variant="subtitle2" fontWeight={1000} color={difference === 0 ? "text.primary" : difference > 0 ? "success.main" : "error.main"}>
-                                                {formatCOP(difference)}
-                                            </Typography>
-                                            {difference !== 0 && (
-                                                <Typography variant="caption" fontWeight={900} color={difference > 0 ? "success.main" : "error.main"} sx={{ display: 'block', fontSize: '0.65rem' }}>
-                                                    {difference > 0 ? "SOBRANTE" : "FALTANTE"}
+                                            <Typography variant="subtitle2" fontWeight={800} color="primary.dark">RESUMEN DE DIFERENCIAS</Typography>
+                                            
+                                            <Stack direction="row" justifyContent="space-between">
+                                                <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Efectivo:</Typography>
+                                                <Typography variant="caption" fontWeight={900} color={difference === 0 ? "text.secondary" : difference > 0 ? "success.main" : "error.main"}>
+                                                    {formatCOP(difference)}
                                                 </Typography>
-                                            )}
-                                        </Box>
+                                            </Stack>
+                                            
+                                            <Stack direction="row" justifyContent="space-between">
+                                                <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Tarjeta:</Typography>
+                                                <Typography variant="caption" fontWeight={900} color={cardDifference === 0 ? "text.secondary" : cardDifference > 0 ? "success.main" : "error.main"}>
+                                                    {formatCOP(cardDifference)}
+                                                </Typography>
+                                            </Stack>
+
+                                            <Stack direction="row" justifyContent="space-between">
+                                                <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Transf.:</Typography>
+                                                <Typography variant="caption" fontWeight={900} color={transferDifference === 0 ? "text.secondary" : transferDifference > 0 ? "success.main" : "error.main"}>
+                                                    {formatCOP(transferDifference)}
+                                                </Typography>
+                                            </Stack>
+
+                                            <Divider sx={{ my: 0.5 }} />
+                                            
+                                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                                <Typography variant="subtitle1" fontWeight={800}>Gran Total Dif.:</Typography>
+                                                <Box sx={{ textAlign: "right" }}>
+                                                    <Typography variant="subtitle1" fontWeight={1000} color={(difference + cardDifference + transferDifference) === 0 ? "text.primary" : (difference + cardDifference + transferDifference) > 0 ? "success.main" : "error.main"}>
+                                                        {formatCOP(difference + cardDifference + transferDifference)}
+                                                    </Typography>
+                                                    {(difference + cardDifference + transferDifference) !== 0 && (
+                                                        <Typography variant="caption" fontWeight={900} color={(difference + cardDifference + transferDifference) > 0 ? "success.main" : "error.main"} sx={{ display: 'block', fontSize: '0.65rem' }}>
+                                                            {(difference + cardDifference + transferDifference) > 0 ? "SOBRANTE TOTAL" : "FALTANTE TOTAL"}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                        </Stack>
                                     </Stack>
                                 </Box>
 
@@ -594,11 +699,21 @@ export default function CashClosingPage() {
                                                     </TableCell>
                                                     <TableCell align="right">
                                                         <Typography variant="body2" fontWeight={800} color={(c.difference || 0) === 0 ? "text.secondary" : (c.difference || 0) > 0 ? "success.main" : "error.main"}>
-                                                            {formatCOP(c.difference || 0)}
+                                                            Efe: {formatCOP(c.difference || 0)}
                                                         </Typography>
-                                                        {c.difference !== 0 && (
-                                                            <Typography variant="caption" fontWeight={900} color={(c.difference || 0) > 0 ? "success.main" : "error.main"} sx={{ fontSize: '0.6rem' }}>
-                                                                {(c.difference || 0) > 0 ? "SOBRANTE" : "FALTANTE"}
+                                                        {c.cardDifference !== undefined && (
+                                                            <Typography variant="body2" fontWeight={800} color={c.cardDifference === 0 ? "text.secondary" : c.cardDifference > 0 ? "success.main" : "error.main"}>
+                                                                Tar: {formatCOP(c.cardDifference)}
+                                                            </Typography>
+                                                        )}
+                                                        {c.transferDifference !== undefined && (
+                                                            <Typography variant="body2" fontWeight={800} color={c.transferDifference === 0 ? "text.secondary" : c.transferDifference > 0 ? "success.main" : "error.main"}>
+                                                                Tra: {formatCOP(c.transferDifference)}
+                                                            </Typography>
+                                                        )}
+                                                        {( (c.difference || 0) !== 0 || (c.cardDifference || 0) !== 0 || (c.transferDifference || 0) !== 0 ) && (
+                                                            <Typography variant="caption" fontWeight={900} color={((c.difference || 0) + (c.cardDifference || 0) + (c.transferDifference || 0)) > 0 ? "success.main" : "error.main"} sx={{ fontSize: '0.6rem' }}>
+                                                                {((c.difference || 0) + (c.cardDifference || 0) + (c.transferDifference || 0)) > 0 ? "SOBRANTE" : "FALTANTE"}
                                                             </Typography>
                                                         )}
                                                     </TableCell>
