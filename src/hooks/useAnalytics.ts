@@ -141,6 +141,8 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
     const orderTypesMap: Record<string, number> = {};
     const paymentRevenue = { efectivo: 0, tarjeta: 0, transferencia: 0, otros: 0 };
     let totalTips = 0;
+    let totalUsdReceived = 0;
+    let totalChangeInCOP = 0;
 
     /* 🔹 Revenue chart & Product analysis */
     const revenueMap: Record<string, number> = {};
@@ -152,6 +154,8 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
       const total = Number(order.total || 0);
       const tip = Number(order.tipAmount || 0);
       totalTips += tip;
+      totalUsdReceived += Number((order as any).usdReceived || 0);
+      totalChangeInCOP += Number((order as any).changeInCOP || 0);
 
       // Aplicar retención del 5% si es tarjeta
       const isCard = pm.includes("tarjeta") || pm.includes("card") || pm.includes("crédito") || pm.includes("debito") || pm.includes("débito") || pm.includes("credito");
@@ -263,6 +267,8 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
       paymentRevenue,
       totalTips,
       totalGuiaDiscount,
+      totalUsdReceived,
+      totalChangeInCOP,
     };
   }, [orders, period, customDate]);
 };

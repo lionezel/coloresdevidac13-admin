@@ -43,6 +43,9 @@ export default function CheckoutDialog({
     const { restaurantId } = useParams<{ restaurantId: string }>();
     const [paymentMethod, setPaymentMethod] = useState<string>("efectivo");
     const [cashReceived, setCashReceived] = useState<number | "">("");
+    const [cashCurrency, setCashCurrency] = useState<"COP" | "USD">("COP");
+    const [usdExchangeRate, setUsdExchangeRate] = useState<number | "">(4200);
+    const [usdReceived, setUsdReceived] = useState<number | "">("");
 
     // Plan Guía
     const [isGuiaPlan, setIsGuiaPlan] = useState<boolean>(false);
@@ -135,6 +138,9 @@ export default function CheckoutDialog({
         setTipPercentage(0);
         setTipFixedAmount("");
         setCashReceived("");
+        setCashCurrency("COP");
+        setUsdExchangeRate(4200);
+        setUsdReceived("");
         setDiscountType("none");
         setDiscountMode("percentage");
         setDiscountValue("");
@@ -152,8 +158,28 @@ export default function CheckoutDialog({
 
     const isShortOnCash =
         paymentMethod === "efectivo" &&
+        cashCurrency === "COP" &&
         cashReceived !== "" &&
         Number(cashReceived) < totalGeneral;
+
+    // USD calculations
+    const totalInUSD = useMemo(() => {
+        if (cashCurrency !== "USD" || !usdExchangeRate) return 0;
+        return totalGeneral / Number(usdExchangeRate);
+    }, [cashCurrency, usdExchangeRate, totalGeneral]);
+
+    const copChangeFromUSD = useMemo(() => {
+        if (cashCurrency !== "USD" || usdReceived === "" || !usdExchangeRate) return 0;
+        const paid = Number(usdReceived) * Number(usdExchangeRate);
+        return paid > totalGeneral ? paid - totalGeneral : 0;
+    }, [cashCurrency, usdReceived, usdExchangeRate, totalGeneral]);
+
+    const isShortOnUSD =
+        paymentMethod === "efectivo" &&
+        cashCurrency === "USD" &&
+        usdReceived !== "" &&
+        usdExchangeRate !== "" &&
+        Number(usdReceived) * Number(usdExchangeRate) < totalGeneral;
 
     const componentRef = useRef<HTMLDivElement>(null);
     const handlePrint = useReactToPrint({
@@ -162,7 +188,7 @@ export default function CheckoutDialog({
     });
 
     const handleFinish = async () => {
-        if (isShortOnCash) return;
+        if (isShortOnCash || isShortOnUSD) return;
         if (paymentMethod === "fiado" && !selectedCustomerId) return;
 
         if (order) {
@@ -186,7 +212,12 @@ export default function CheckoutDialog({
                 tipPercentage,
                 tipAmount,
                 total: totalGeneral,
-                customer: customerData
+                customer: customerData,
+                // Multi-currency cash
+                cashCurrency: paymentMethod === "efectivo" ? cashCurrency : null,
+                usdReceived: paymentMethod === "efectivo" && cashCurrency === "USD" ? Number(usdReceived) : null,
+                usdExchangeRate: paymentMethod === "efectivo" && cashCurrency === "USD" ? Number(usdExchangeRate) : null,
+                changeInCOP: paymentMethod === "efectivo" && cashCurrency === "USD" ? copChangeFromUSD : null,
             };
 
             Object.keys(payload).forEach(key => {
@@ -520,48 +551,114 @@ export default function CheckoutDialog({
                             <Typography variant="subtitle2" fontWeight={800} color="#b45309" mb={2}>
                                 Calculadora de Cambio
                             </Typography>
-                            <Stack direction="row" spacing={2} alignItems="flex-start">
-                                <TextField
-                                    label="Efectivo Recibido ($)"
-                                    type="number"
-                                    value={cashReceived}
-                                    onChange={(e) => setCashReceived(e.target.value ? Number(e.target.value) : "")}
-                                    error={isShortOnCash}
-                                    helperText={
-                                        isShortOnCash ? "Monto insuficiente" : ""
-                                    }
-                                    fullWidth
-                                    InputProps={{
-                                        sx: { bgcolor: "#fff", fontWeight: 700 },
-                                    }}
-                                />
 
-                                <Box
-                                    sx={{
-                                        minWidth: '120px',
-                                        p: 1.5,
-                                        bgcolor: cashReceived ? (isShortOnCash ? '#fee2e2' : '#dcfce7') : '#f1f5f9',
-                                        borderRadius: 2,
-                                        textAlign: 'center',
-                                        border: '1px solid',
-                                        borderColor: cashReceived ? (isShortOnCash ? '#ef4444' : '#22c55e') : '#cbd5e1',
-                                    }}
+                            {/* Currency toggle */}
+                            <Stack direction="row" spacing={1} mb={2}>
+                                <Button
+                                    size="small"
+                                    variant={cashCurrency === "COP" ? "contained" : "outlined"}
+                                    onClick={() => { setCashCurrency("COP"); setCashReceived(""); setUsdReceived(""); }}
+                                    sx={{ borderRadius: 2, fontWeight: 800 }}
+                                    color="warning"
                                 >
-                                    <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">
-                                        {isShortOnCash ? "DEBE" : "CAMBIO"}
-                                    </Typography>
-                                    <Typography
-                                        variant="h6"
-                                        fontWeight={900}
-                                        color={isShortOnCash ? "error.main" : "success.main"}
-                                    >
-                                        ${isShortOnCash
-                                            ? (totalGeneral - Number(cashReceived)).toLocaleString()
-                                            : changeToGive.toLocaleString()
-                                        }
-                                    </Typography>
-                                </Box>
+                                    🇨🇴 Pesos (COP)
+                                </Button>
+                                <Button
+                                    size="small"
+                                    variant={cashCurrency === "USD" ? "contained" : "outlined"}
+                                    onClick={() => { setCashCurrency("USD"); setCashReceived(""); setUsdReceived(""); }}
+                                    sx={{ borderRadius: 2, fontWeight: 800 }}
+                                    color="warning"
+                                >
+                                    🇺🇸 Dólares (USD)
+                                </Button>
                             </Stack>
+
+                            {/* COP mode */}
+                            {cashCurrency === "COP" && (
+                                <Stack direction="row" spacing={2} alignItems="flex-start">
+                                    <TextField
+                                        label="Efectivo Recibido ($)"
+                                        type="number"
+                                        value={cashReceived}
+                                        onChange={(e) => setCashReceived(e.target.value ? Number(e.target.value) : "")}
+                                        error={isShortOnCash}
+                                        helperText={isShortOnCash ? "Monto insuficiente" : ""}
+                                        fullWidth
+                                        InputProps={{ sx: { bgcolor: "#fff", fontWeight: 700 } }}
+                                    />
+                                    <Box
+                                        sx={{
+                                            minWidth: '120px',
+                                            p: 1.5,
+                                            bgcolor: cashReceived ? (isShortOnCash ? '#fee2e2' : '#dcfce7') : '#f1f5f9',
+                                            borderRadius: 2,
+                                            textAlign: 'center',
+                                            border: '1px solid',
+                                            borderColor: cashReceived ? (isShortOnCash ? '#ef4444' : '#22c55e') : '#cbd5e1',
+                                        }}
+                                    >
+                                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">
+                                            {isShortOnCash ? "DEBE" : "CAMBIO"}
+                                        </Typography>
+                                        <Typography variant="h6" fontWeight={900} color={isShortOnCash ? "error.main" : "success.main"}>
+                                            ${isShortOnCash
+                                                ? (totalGeneral - Number(cashReceived)).toLocaleString()
+                                                : changeToGive.toLocaleString()}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                            )}
+
+                            {/* USD mode */}
+                            {cashCurrency === "USD" && (
+                                <Stack spacing={2}>
+                                    {/* Exchange rate */}
+                                    <TextField
+                                        label="Tasa de cambio (COP por 1 USD)"
+                                        type="number"
+                                        value={usdExchangeRate}
+                                        onChange={(e) => setUsdExchangeRate(e.target.value ? Number(e.target.value) : "")}
+                                        fullWidth
+                                        InputProps={{ sx: { bgcolor: "#fff", fontWeight: 700 } }}
+                                        helperText={`Total a pagar: $${totalGeneral.toLocaleString()} COP ≈ $${totalInUSD.toFixed(2)} USD`}
+                                    />
+
+                                    <Stack direction="row" spacing={2} alignItems="flex-start">
+                                        <TextField
+                                            label="USD Recibidos"
+                                            type="number"
+                                            value={usdReceived}
+                                            onChange={(e) => setUsdReceived(e.target.value ? Number(e.target.value) : "")}
+                                            error={isShortOnUSD}
+                                            helperText={isShortOnUSD ? "Monto insuficiente" : ""}
+                                            fullWidth
+                                            InputProps={{ sx: { bgcolor: "#fff", fontWeight: 700 }, startAdornment: <Typography variant="caption" sx={{ mr: 1, fontWeight: 800 }}>$</Typography> }}
+                                        />
+
+                                        <Box
+                                            sx={{
+                                                minWidth: '140px',
+                                                p: 1.5,
+                                                bgcolor: usdReceived !== "" ? (isShortOnUSD ? '#fee2e2' : '#dcfce7') : '#f1f5f9',
+                                                borderRadius: 2,
+                                                textAlign: 'center',
+                                                border: '1px solid',
+                                                borderColor: usdReceived !== "" ? (isShortOnUSD ? '#ef4444' : '#22c55e') : '#cbd5e1',
+                                            }}
+                                        >
+                                            <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">
+                                                {isShortOnUSD ? "DEBE (COP)" : "CAMBIO EN COP"}
+                                            </Typography>
+                                            <Typography variant="h6" fontWeight={900} color={isShortOnUSD ? "error.main" : "success.main"}>
+                                                ${isShortOnUSD
+                                                    ? (totalGeneral - Number(usdReceived) * Number(usdExchangeRate)).toLocaleString()
+                                                    : copChangeFromUSD.toLocaleString()}
+                                            </Typography>
+                                        </Box>
+                                    </Stack>
+                                </Stack>
+                            )}
                         </Box>
                     )}
 
@@ -583,7 +680,7 @@ export default function CheckoutDialog({
                     variant="contained"
                     size="large"
                     color="success"
-                    disabled={isShortOnCash}
+                    disabled={isShortOnCash || isShortOnUSD}
                     onClick={handleFinish}
                     startIcon={<ReceiptLongIcon />}
                     sx={{

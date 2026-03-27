@@ -23,6 +23,8 @@ import {
   AccountBalance,
   LocalAtm,
   Savings,
+  CurrencyExchange,
+  SwapHoriz,
 } from "@mui/icons-material";
 import {
   LineChart,
@@ -364,6 +366,24 @@ export default function Dashboard() {
             value={formatCOP(analytics.totalGuiaDiscount)}
             icon={<LocalAtm />}
             color="#ed6c02"
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+          <Metric
+            title="Total Recibido en USD"
+            value={`$${analytics.totalUsdReceived.toFixed(2)} USD`}
+            icon={<CurrencyExchange />}
+            color="#0288d1"
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+          <Metric
+            title="Cambio Devuelto en COP"
+            value={formatCOP(analytics.totalChangeInCOP)}
+            icon={<SwapHoriz />}
+            color="#7b1fa2"
           />
         </Grid>
       </Grid>
