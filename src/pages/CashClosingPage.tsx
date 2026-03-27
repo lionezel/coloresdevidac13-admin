@@ -131,11 +131,11 @@ export default function CashClosingPage() {
             startOfDay.setHours(0, 0, 0, 0);
             const endOfDay = new Date(startOfDay);
             endOfDay.setDate(startOfDay.getDate() + 1);
-            
+
             return orders.filter(order => {
                 const d = toDate(order);
                 return d >= startOfDay && d < endOfDay && order.state === "completada";
-            }).sort((a,b) => toDate(b).getTime() - toDate(a).getTime());
+            }).sort((a, b) => toDate(b).getTime() - toDate(a).getTime());
         }
         return [];
     }, [orders, selectedClosing]);
@@ -156,7 +156,7 @@ export default function CashClosingPage() {
             const pm = order.paymentMethod?.toLowerCase() || "";
             const total = Number(order.total || 0);
             const guiaAmount = Number(order.guiaDiscount || 0);
-            
+
             totals.totalGross += total;
             totals.totalGuiaDiscount += guiaAmount;
 
@@ -497,19 +497,6 @@ export default function CashClosingPage() {
                                     helperText="Dinero con el que inició el turno."
                                 />
 
-                                <TextField
-                                    label="Saldo Real en Cuenta (Transferencias)"
-                                    type="number"
-                                    fullWidth
-                                    variant="outlined"
-                                    value={actualTransfer || ""}
-                                    onChange={(e) => setActualTransfer(Number(e.target.value))}
-                                    InputProps={{
-                                        startAdornment: <AccountBalance sx={{ color: "text.disabled", mr: 1 }} />,
-                                    }}
-                                    helperText="Sume Nequi, Daviplata y Bancolombia."
-                                />
-
                                 <Grid container spacing={2} alignItems="center">
                                     <Grid size={{ xs: 6 }}>
                                         <Typography variant="caption" color="text.secondary" fontWeight={700}>Efectivo Sistema (Teórico):</Typography>
@@ -569,70 +556,70 @@ export default function CashClosingPage() {
 
                                 <Box sx={{ p: 2, bgcolor: "#f1f5f9", borderRadius: 3, mt: 3 }}>
                                     <Stack spacing={1}>
-                                            <Typography variant="subtitle2" fontWeight={800} color="primary.dark">RESUMEN DE VENTAS</Typography>
-                                            <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                                <Typography variant="caption" color="text.secondary" fontWeight={600}>Ventas Brutas:</Typography>
-                                                <Typography variant="caption" fontWeight={700}>{formatCOP(summary.totalGross)}</Typography>
-                                            </Stack>
-                                            <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                                <Typography variant="caption" color="error.main" fontWeight={600}>(-) Desc. Guías:</Typography>
-                                                <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(summary.totalGuiaDiscount)}</Typography>
-                                            </Stack>
-                                            <Divider sx={{ my: 0.5 }} />
-                                            <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                                <Typography variant="caption" color="error.main" fontWeight={600}>(-) Egresos:</Typography>
-                                                <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(totalExpenses)}</Typography>
-                                            </Stack>
-                                            <Divider sx={{ my: 0.5 }} />
-                                            <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                                <Typography variant="body2" color="text.primary" fontWeight={800}>Venta Neta:</Typography>
-                                                <Typography variant="body2" fontWeight={900}>{formatCOP(summary.totalSales)}</Typography>
-                                            </Stack>
-                                            <Divider sx={{ my: 1 }} />
-                                            <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                                <Typography variant="body2" color="text.secondary" fontWeight={600}>Teórico en Caja:</Typography>
-                                                <Typography variant="body2" fontWeight={800}>{formatCOP(expectedCash)}</Typography>
-                                            </Stack>
+                                        <Typography variant="subtitle2" fontWeight={800} color="primary.dark">RESUMEN DE VENTAS</Typography>
+                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Ventas Brutas:</Typography>
+                                            <Typography variant="caption" fontWeight={700}>{formatCOP(summary.totalGross)}</Typography>
+                                        </Stack>
+                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                            <Typography variant="caption" color="error.main" fontWeight={600}>(-) Desc. Guías:</Typography>
+                                            <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(summary.totalGuiaDiscount)}</Typography>
+                                        </Stack>
+                                        <Divider sx={{ my: 0.5 }} />
+                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                            <Typography variant="caption" color="error.main" fontWeight={600}>(-) Egresos:</Typography>
+                                            <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(totalExpenses)}</Typography>
+                                        </Stack>
+                                        <Divider sx={{ my: 0.5 }} />
+                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                            <Typography variant="body2" color="text.primary" fontWeight={800}>Venta Neta:</Typography>
+                                            <Typography variant="body2" fontWeight={900}>{formatCOP(summary.totalSales)}</Typography>
+                                        </Stack>
+                                        <Divider sx={{ my: 1 }} />
+                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                            <Typography variant="body2" color="text.secondary" fontWeight={600}>Teórico en Caja:</Typography>
+                                            <Typography variant="body2" fontWeight={800}>{formatCOP(expectedCash)}</Typography>
+                                        </Stack>
 
-                                            <Divider sx={{ my: 1.5 }} />
+                                        <Divider sx={{ my: 1.5 }} />
 
-                                            <Typography variant="subtitle2" fontWeight={800} color="primary.dark">RESUMEN DE DIFERENCIAS</Typography>
-                                            
-                                            <Stack direction="row" justifyContent="space-between">
-                                                <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Efectivo:</Typography>
-                                                <Typography variant="caption" fontWeight={900} color={difference === 0 ? "text.secondary" : difference > 0 ? "success.main" : "error.main"}>
-                                                    {formatCOP(difference)}
+                                        <Typography variant="subtitle2" fontWeight={800} color="primary.dark">RESUMEN DE DIFERENCIAS</Typography>
+
+                                        <Stack direction="row" justifyContent="space-between">
+                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Efectivo:</Typography>
+                                            <Typography variant="caption" fontWeight={900} color={difference === 0 ? "text.secondary" : difference > 0 ? "success.main" : "error.main"}>
+                                                {formatCOP(difference)}
+                                            </Typography>
+                                        </Stack>
+
+                                        <Stack direction="row" justifyContent="space-between">
+                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Tarjeta:</Typography>
+                                            <Typography variant="caption" fontWeight={900} color={cardDifference === 0 ? "text.secondary" : cardDifference > 0 ? "success.main" : "error.main"}>
+                                                {formatCOP(cardDifference)}
+                                            </Typography>
+                                        </Stack>
+
+                                        <Stack direction="row" justifyContent="space-between">
+                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Transf.:</Typography>
+                                            <Typography variant="caption" fontWeight={900} color={transferDifference === 0 ? "text.secondary" : transferDifference > 0 ? "success.main" : "error.main"}>
+                                                {formatCOP(transferDifference)}
+                                            </Typography>
+                                        </Stack>
+
+                                        <Divider sx={{ my: 0.5 }} />
+
+                                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                            <Typography variant="subtitle1" fontWeight={800}>Gran Total Dif.:</Typography>
+                                            <Box sx={{ textAlign: "right" }}>
+                                                <Typography variant="subtitle1" fontWeight={1000} color={(difference + cardDifference + transferDifference) === 0 ? "text.primary" : (difference + cardDifference + transferDifference) > 0 ? "success.main" : "error.main"}>
+                                                    {formatCOP(difference + cardDifference + transferDifference)}
                                                 </Typography>
-                                            </Stack>
-                                            
-                                            <Stack direction="row" justifyContent="space-between">
-                                                <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Tarjeta:</Typography>
-                                                <Typography variant="caption" fontWeight={900} color={cardDifference === 0 ? "text.secondary" : cardDifference > 0 ? "success.main" : "error.main"}>
-                                                    {formatCOP(cardDifference)}
-                                                </Typography>
-                                            </Stack>
-
-                                            <Stack direction="row" justifyContent="space-between">
-                                                <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Transf.:</Typography>
-                                                <Typography variant="caption" fontWeight={900} color={transferDifference === 0 ? "text.secondary" : transferDifference > 0 ? "success.main" : "error.main"}>
-                                                    {formatCOP(transferDifference)}
-                                                </Typography>
-                                            </Stack>
-
-                                            <Divider sx={{ my: 0.5 }} />
-                                            
-                                            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                                <Typography variant="subtitle1" fontWeight={800}>Gran Total Dif.:</Typography>
-                                                <Box sx={{ textAlign: "right" }}>
-                                                    <Typography variant="subtitle1" fontWeight={1000} color={(difference + cardDifference + transferDifference) === 0 ? "text.primary" : (difference + cardDifference + transferDifference) > 0 ? "success.main" : "error.main"}>
-                                                        {formatCOP(difference + cardDifference + transferDifference)}
+                                                {(difference + cardDifference + transferDifference) !== 0 && (
+                                                    <Typography variant="caption" fontWeight={900} color={(difference + cardDifference + transferDifference) > 0 ? "success.main" : "error.main"} sx={{ display: 'block', fontSize: '0.65rem' }}>
+                                                        {(difference + cardDifference + transferDifference) > 0 ? "SOBRANTE TOTAL" : "FALTANTE TOTAL"}
                                                     </Typography>
-                                                    {(difference + cardDifference + transferDifference) !== 0 && (
-                                                        <Typography variant="caption" fontWeight={900} color={(difference + cardDifference + transferDifference) > 0 ? "success.main" : "error.main"} sx={{ display: 'block', fontSize: '0.65rem' }}>
-                                                            {(difference + cardDifference + transferDifference) > 0 ? "SOBRANTE TOTAL" : "FALTANTE TOTAL"}
-                                                        </Typography>
-                                                    )}
-                                                </Box>
+                                                )}
+                                            </Box>
                                         </Stack>
                                     </Stack>
                                 </Box>
@@ -739,7 +726,7 @@ export default function CashClosingPage() {
                                                                 Tra: {formatCOP(c.transferDifference)}
                                                             </Typography>
                                                         )}
-                                                        {( (c.difference || 0) !== 0 || (c.cardDifference || 0) !== 0 || (c.transferDifference || 0) !== 0 ) && (
+                                                        {((c.difference || 0) !== 0 || (c.cardDifference || 0) !== 0 || (c.transferDifference || 0) !== 0) && (
                                                             <Typography variant="caption" fontWeight={900} color={((c.difference || 0) + (c.cardDifference || 0) + (c.transferDifference || 0)) > 0 ? "success.main" : "error.main"} sx={{ fontSize: '0.6rem' }}>
                                                                 {((c.difference || 0) + (c.cardDifference || 0) + (c.transferDifference || 0)) > 0 ? "SOBRANTE" : "FALTANTE"}
                                                             </Typography>
@@ -814,10 +801,10 @@ export default function CashClosingPage() {
             </Grid>
 
             {/* DIÁLOGO DETALLES DE CIERRE */}
-            <Dialog 
-                open={!!selectedClosing} 
-                onClose={() => { setSelectedClosing(null); setDialogTab(0); }} 
-                maxWidth="md" 
+            <Dialog
+                open={!!selectedClosing}
+                onClose={() => { setSelectedClosing(null); setDialogTab(0); }}
+                maxWidth="md"
                 fullWidth
                 PaperProps={{ sx: { borderRadius: 4, overflow: 'hidden' } }}
             >
@@ -835,12 +822,12 @@ export default function CashClosingPage() {
                     </IconButton>
                 </DialogTitle>
 
-                <Tabs 
-                    value={dialogTab} 
-                    onChange={(e, v) => setDialogTab(v)} 
-                    variant="fullWidth" 
-                    sx={{ 
-                        borderBottom: 1, 
+                <Tabs
+                    value={dialogTab}
+                    onChange={(e, v) => setDialogTab(v)}
+                    variant="fullWidth"
+                    sx={{
+                        borderBottom: 1,
                         borderColor: 'divider',
                         bgcolor: '#f8fafc',
                         '& .MuiTab-root': { fontWeight: 800, textTransform: 'none', fontSize: '0.95rem' }
@@ -866,7 +853,7 @@ export default function CashClosingPage() {
                                                 <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.openingBalance)}</Typography>
                                             </Stack>
                                             <Stack direction="row" justifyContent="space-between">
-                                                <Typography variant="body2" color="text.secondary" fontWeight={700}>Ventas Totales Netas</Typography>
+                                                z                         <Typography variant="body2" color="text.secondary" fontWeight={700}>Ventas Totales Netas</Typography>
                                                 <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.totalSales)}</Typography>
                                             </Stack>
                                             <Stack direction="row" justifyContent="space-between">
@@ -904,7 +891,7 @@ export default function CashClosingPage() {
                                                     </Typography>
                                                 </Stack>
                                             </Box>
-                                            
+
                                             <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: (selectedClosing.cardDifference || 0) < 0 ? '#fef2f2' : (selectedClosing.cardDifference || 0) > 0 ? '#f0fdf4' : '#f8fafc' }}>
                                                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                                                     <Box>
@@ -1029,7 +1016,7 @@ export default function CashClosingPage() {
                                     </CardContent>
                                 </Card>
                             </Grid>
-                            
+
                             <Grid size={{ xs: 12, md: 6 }}>
                                 <Card variant="outlined" sx={{ borderRadius: 3, borderColor: '#e2e8f0', height: '100%' }}>
                                     <CardContent>
