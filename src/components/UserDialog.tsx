@@ -140,6 +140,7 @@ export default function UserDialog({ open, onClose, initial, onSubmit }: Props) 
                                 <MenuItem value="admin">Administrador</MenuItem>
                                 <MenuItem value="cajero">Cajero</MenuItem>
                                 <MenuItem value="mesero">Mesero</MenuItem>
+                                <MenuItem value="cocinero">Cocinero</MenuItem>
                             </TextField>
                         </Grid>
                     </Grid>

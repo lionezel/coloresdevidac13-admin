@@ -31,6 +31,7 @@ import {
   Person,
 } from "@mui/icons-material";
 import { useCollection } from "../hooks/useCollection";
+import { useAuth } from "../hooks/useAuth";
 import { differenceInMinutes } from "date-fns";
 import { useParams, useNavigate } from "react-router-dom";
 import { Order, OrderStatus } from "../interfaces/Order";
@@ -69,6 +70,8 @@ const playNotificationSound = () => {
 export default function OrdersPage() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const navigate = useNavigate();
+  const { userDoc, canCreate, canDelete } = useAuth();
+  const userRole = userDoc?.role;
   const [tabValue, setTabValue] = useState(0);
   const previousOrdersCount = useRef(0);
 
@@ -139,13 +142,15 @@ export default function OrdersPage() {
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Button
-            variant="contained"
-            onClick={() => navigate(`/${restaurantId}/create-order`)}
-            sx={{ fontWeight: 800, borderRadius: 2, py: 1 }}
-          >
-            + Nueva Orden
-          </Button>
+          {canCreate && (
+            <Button
+              variant="contained"
+              onClick={() => navigate(`/${restaurantId}/create-order`)}
+              sx={{ fontWeight: 800, borderRadius: 2, py: 1 }}
+            >
+              + Nueva Orden
+            </Button>
+          )}
           <Paper
             elevation={0}
             sx={{
@@ -201,6 +206,8 @@ export default function OrdersPage() {
               <OrderCard
                 order={order}
                 allProducts={allProducts}
+                userRole={userRole}
+                canDelete={canDelete}
                 onUpdateStatus={handleChangeStatus}
                 onUpdateOrder={updateItem}
                 onComplete={handleSendToCashier}
@@ -218,9 +225,11 @@ export default function OrdersPage() {
    📦 Tarjeta de Orden (Refinada)
  ======================= */
 
-function OrderCard({ order, allProducts, onUpdateStatus, onComplete, onDelete, onUpdateOrder }: {
+function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, onComplete, onDelete, onUpdateOrder }: {
   order: Order;
   allProducts: Product[];
+  userRole?: string;
+  canDelete?: boolean;
   onUpdateStatus: (id: string, s: OrderStatus) => void;
   onComplete: (o: Order) => void;
   onDelete: (id: string) => void;
@@ -466,7 +475,7 @@ function OrderCard({ order, allProducts, onUpdateStatus, onComplete, onDelete, o
             </>
           )}
 
-          {drinkItems.length > 0 && (
+          {drinkItems.length > 0 && userRole !== "cocinero" && (
             <>
               <Typography variant="caption" color="text.disabled" fontWeight={900} sx={{ mb: 1.5, display: "block", letterSpacing: 1, fontSize: "0.65rem" }}>
                 BEBIDAS ({drinkItems.length})
@@ -504,21 +513,23 @@ function OrderCard({ order, allProducts, onUpdateStatus, onComplete, onDelete, o
               Listo / A Caja
             </Button>
 
-            <MuiTooltip title="Eliminar" arrow>
-              <IconButton
-                color="error"
-                size="small"
-                onClick={() => onDelete(order.id!)}
-                sx={{
-                  borderRadius: 2.5,
-                  p: 1.5,
-                  border: "1.5px solid",
-                  borderColor: "error.light"
-                }}
-              >
-                <DeleteOutline fontSize="small" />
-              </IconButton>
-            </MuiTooltip>
+            {canDelete && (
+              <MuiTooltip title="Eliminar" arrow>
+                <IconButton
+                  color="error"
+                  size="small"
+                  onClick={() => onDelete(order.id!)}
+                  sx={{
+                    borderRadius: 2.5,
+                    p: 1.5,
+                    border: "1.5px solid",
+                    borderColor: "error.light"
+                  }}
+                >
+                  <DeleteOutline fontSize="small" />
+                </IconButton>
+              </MuiTooltip>
+            )}
           </Stack>
         </CardActions>
       </Card>
