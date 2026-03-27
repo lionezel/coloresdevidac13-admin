@@ -51,4 +51,9 @@ export interface Order {
     discountProductId?: string;
     isGuiaPlan?: boolean;
     guiaDiscount?: number;
+    // Multi-currency cash fields
+    cashCurrency?: "COP" | "USD";
+    usdReceived?: number;
+    usdExchangeRate?: number;
+    changeInCOP?: number;
 }
