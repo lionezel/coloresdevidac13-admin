@@ -1,5 +1,4 @@
 import React from 'react';
-import { Box, Typography, Divider, Stack } from '@mui/material';
 import { Order } from '../interfaces/Order';
 
 interface InvoiceReceiptProps {
@@ -7,148 +6,143 @@ interface InvoiceReceiptProps {
 }
 
 export const InvoiceReceipt = React.forwardRef<HTMLDivElement, InvoiceReceiptProps>(({ order }, ref) => {
-    const formatCOP = (num: number) => `$${(num || 0).toLocaleString('es-CO')}`;
+    const priceToString = (num: number) => num.toLocaleString('es-CO');
 
-    // Helper to format date
     const formatDate = (dateValue: any) => {
-        if (!dateValue) return new Date().toLocaleString();
-        if (dateValue.toDate) return dateValue.toDate().toLocaleString();
-        if (dateValue instanceof Date) return dateValue.toLocaleString();
-        return new Date(dateValue).toLocaleString();
+        let date = new Date();
+        if (dateValue) {
+            if (dateValue.toDate) date = dateValue.toDate();
+            else if (dateValue instanceof Date) date = dateValue;
+            else date = new Date(dateValue);
+        }
+        
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        
+        let hours = date.getHours();
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12; 
+        const strTime = String(hours).padStart(2, '0') + ':' + minutes + ':' + seconds + ' ' + ampm;
+        
+        return `${day}/${month}/${year} ${strTime}`;
     };
 
+    const totalItems = order.products.reduce((acc, p) => acc + p.quantity, 0);
+    const subtotal = order.subTotal || (order.total + (order.discountAmount || 0) - (order.tipAmount || 0));
+
     return (
-        <Box 
-            ref={ref} 
-            sx={{ 
-                width: '80mm', 
-                p: 2, 
-                bgcolor: 'white', 
-                color: 'black', 
-                fontFamily: "'Courier New', Courier, monospace",
-                "@media print": {
-                    width: "80mm",
-                    padding: "5mm",
-                    margin: 0,
-                }
-            }}
-        >
-            {/* Header */}
-            <Stack spacing={0.5} alignItems="center" textAlign="center" mb={2}>
-                <Typography variant="subtitle1" fontWeight={900} sx={{ fontSize: '1.2rem', lineHeight: 1.1 }}>
-                    COLORES DE VIDA C13
-                </Typography>
-                <Typography sx={{ fontSize: '0.7rem' }}>NIT: 900.500.XXX-X</Typography>
-                <Typography sx={{ fontSize: '0.7rem' }}>Carrera 13 # XX - XX</Typography>
-                <Typography sx={{ fontSize: '0.7rem' }}>Tel: +57 300 000 0000</Typography>
-                <Typography sx={{ fontSize: '0.7rem' }}>Medellín - Antioquia</Typography>
-            </Stack>
+        <div ref={ref} className="bg-white text-black font-mono leading-tight" style={{ fontFamily: '"Courier New", Courier, monospace', width: '300px', margin: '0 auto', fontSize: '12px', padding: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px', textAlign: 'center' }}>
+                <img src="/logoc.jpeg" alt="Colores de Vida" style={{ width: '180px', height: 'auto', marginBottom: '8px', filter: 'grayscale(100%) brightness(0.8) contrast(1.2)' }} />
+                <p style={{ margin: 0 }}>COLORES DE VIDA</p>
+                <p style={{ margin: 0 }}>2DO TRAMO ESCALERAS ELECTRICAS</p>
+                <p style={{ margin: 0 }}>COMUNA 13 - MEDELLIN</p>
+                <p style={{ margin: 0 }}>TELEFONO: 310 743 3397</p>
+                <p style={{ margin: 0 }}>NIT: 1152185281-1</p>
+                <p style={{ margin: 0 }}>GRACIAS POR VISITARNOS</p>
+                <p style={{ margin: 0 }}>**** CUENTA POR PAGAR ****</p>
+            </div>
 
-            <Divider sx={{ borderStyle: 'dashed', my: 1, borderColor: 'black' }} />
+            <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ width: '100px' }}>Recibo:</span>
+                    <span>{order.id ? order.id.slice(-6).toUpperCase() : "JS011850"}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ width: '100px' }}>Fecha:</span>
+                    <span>{formatDate(order.dateSuccess || order.date)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ width: '100px' }}>Equipo:</span>
+                    <span>DESKTOP-4DFJV64</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ width: '100px' }}>Atendido X:</span>
+                    <span>ADMIN</span>
+                </div>
+            </div>
 
-            {/* Order Info */}
-            <Box mb={1} sx={{ fontSize: '0.75rem' }}>
-                <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="inherit">No. Orden:</Typography>
-                    <Typography variant="inherit" fontWeight={700}>#{order.id?.slice(-6).toUpperCase() || 'N/A'}</Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="inherit">Mesa/Pedido:</Typography>
-                    <Typography variant="inherit" fontWeight={700}>{order.name}</Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="inherit">Fecha:</Typography>
-                    <Typography variant="inherit">{formatDate(order.dateSuccess || order.date)}</Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="inherit">Atendido por:</Typography>
-                    <Typography variant="inherit">Administración</Typography>
-                </Stack>
-            </Box>
+            <div style={{ marginBottom: '8px' }}>
+                <div style={{ display: 'flex', borderBottom: '1px dashed black', paddingBottom: '4px', marginBottom: '4px' }}>
+                    <span style={{ flex: 1 }}>Producto</span>
+                    <span style={{ width: '50px', textAlign: 'right' }}>Precio</span>
+                    <span style={{ width: '40px', textAlign: 'right' }}>Cant</span>
+                    <span style={{ width: '60px', textAlign: 'right' }}>Valor</span>
+                </div>
+                {order.products.map((p, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '4px', lineHeight: '1.2' }}>
+                        <span style={{ flex: 1, textTransform: 'uppercase', paddingRight: '4px', wordBreak: 'break-word' }}>
+                            {p.productName}
+                            {p.variantLabel && <div style={{ fontSize: '0.85em', textTransform: 'none' }}>- {p.variantLabel}</div>}
+                            {p.additions?.map((add, aIdx) => (
+                                <div key={aIdx} style={{ fontSize: '0.85em', textTransform: 'none' }}>+ {add.name} ({priceToString(add.price)})</div>
+                            ))}
+                        </span>
+                        <span style={{ width: '50px', textAlign: 'right' }}>{priceToString(p.price)}</span>
+                        <span style={{ width: '40px', textAlign: 'right' }}>x{p.quantity}</span>
+                        <span style={{ width: '60px', textAlign: 'right' }}>{priceToString(p.total ?? (p.price * p.quantity))}</span>
+                    </div>
+                ))}
+                <div style={{ borderTop: '1px dashed black', marginTop: '4px' }}></div>
+            </div>
 
-            <Divider sx={{ borderStyle: 'dashed', my: 1, borderColor: 'black' }} />
+            <div style={{ textTransform: 'uppercase', marginBottom: '16px', marginTop: '8px' }}>
+                <p style={{ margin: 0 }}>PRODUCTOS A PAGAR EN CAJA:{totalItems}</p>
+            </div>
 
-            {/* Items Table */}
-            <table style={{ width: '100%', fontSize: '0.75rem', borderCollapse: 'collapse', marginBottom: '8px' }}>
-                <thead>
-                    <tr style={{ borderBottom: '1px dashed black' }}>
-                        <th style={{ textAlign: 'left', padding: '4px 0', width: '30px' }}>Cant</th>
-                        <th style={{ textAlign: 'left', padding: '4px 0' }}>Descripción</th>
-                        <th style={{ textAlign: 'right', padding: '4px 0' }}>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {order.products.map((p, idx) => (
-                        <tr key={idx}>
-                            <td style={{ verticalAlign: 'top', padding: '4px 0' }}>{p.quantity}</td>
-                            <td style={{ verticalAlign: 'top', padding: '4px 0' }}>
-                                <Typography variant="inherit" sx={{ display: 'block' }}>{p.productName}</Typography>
-                                {p.variantLabel && (
-                                    <Typography variant="inherit" sx={{ fontSize: '0.65rem', color: 'gray', display: 'block' }}>
-                                        - {p.variantLabel}
-                                    </Typography>
-                                )}
-                                {p.additions && p.additions.length > 0 && p.additions.map((add, addIdx) => (
-                                    <Typography key={addIdx} variant="inherit" sx={{ fontSize: '0.65rem', color: 'gray', display: 'block' }}>
-                                        + {add.name} ({formatCOP(add.price)})
-                                    </Typography>
-                                ))}
-                            </td>
-                            <td style={{ verticalAlign: 'top', textAlign: 'right', padding: '4px 0' }}>
-                                {formatCOP(p.total ?? (p.price * p.quantity))}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-
-            <Divider sx={{ borderStyle: 'dashed', my: 1, borderColor: 'black' }} />
-
-            {/* Totals */}
-            <Stack spacing={0.5} sx={{ fontSize: '0.8rem' }}>
-                <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="inherit">Subtotal:</Typography>
-                    <Typography variant="inherit">{formatCOP(order.subTotal || (order.total + (order.discountAmount || 0) - (order.tipAmount || 0)))}</Typography>
-                </Stack>
+            <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 'bold' }}>Subtotal:</span>
+                    <span>{priceToString(subtotal)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Impuesto:</span>
+                    <span>000</span>
+                </div>
                 
-                {order.discountAmount && order.discountAmount > 0 && (
-                    <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="inherit">Descuentos:</Typography>
-                        <Typography variant="inherit">-{formatCOP(order.discountAmount)}</Typography>
-                    </Stack>
+                {order.discountAmount ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Descuento:</span>
+                        <span>-{priceToString(order.discountAmount)}</span>
+                    </div>
+                ) : null}
+
+                {order.tipAmount ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Propina:</span>
+                        <span>+{priceToString(order.tipAmount)}</span>
+                    </div>
+                ) : null}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '14px' }}>
+                    <span style={{ fontWeight: 'bold' }}>TOTAL:</span>
+                    <span style={{ fontWeight: 'bold' }}>{priceToString(order.total)}</span>
+                </div>
+                
+                <p style={{ marginTop: '4px', fontWeight: 'bold', fontSize: '14px', textTransform: 'uppercase', marginBottom: '16px' }}>
+                    {order.paymentMethod?.toLowerCase() === 'efectivo' ? "VENTA EN EFECTIVO" : "VENTA CON TARJETA"}
+                </p>
+
+                {order.paymentMethod?.toLowerCase() !== 'efectivo' && (
+                    <p style={{ textAlign: 'center', marginBottom: '16px', margin: 0 }}>
+                        A card payment was received
+                    </p>
                 )}
 
-                {order.tipAmount && order.tipAmount > 0 && (
-                    <Stack direction="row" justifyContent="space-between">
-                        <Typography variant="inherit">Propina Voluntaria:</Typography>
-                        <Typography variant="inherit">+{formatCOP(order.tipAmount)}</Typography>
-                    </Stack>
-                )}
-
-                <Stack direction="row" justifyContent="space-between" sx={{ mt: 1 }}>
-                    <Typography sx={{ fontSize: '1rem', fontWeight: 900 }}>TOTAL:</Typography>
-                    <Typography sx={{ fontSize: '1rem', fontWeight: 900 }}>{formatCOP(order.total)}</Typography>
-                </Stack>
-            </Stack>
-
-            <Divider sx={{ borderStyle: 'dashed', my: 1, borderColor: 'black' }} />
-
-            {/* Payment Method */}
-            <Box mb={2} textAlign="center">
-                <Typography sx={{ fontSize: '0.7rem' }}>Forma de Pago: {order.paymentMethod?.toUpperCase() || 'N/A'}</Typography>
-            </Box>
-
-            {/* Footer */}
-            <Box textAlign="center" sx={{ mt: 2 }}>
-                <Typography sx={{ fontSize: '0.75rem', fontWeight: 700 }}>¡GRACIAS POR SU COMPRA!</Typography>
-                <Typography sx={{ fontSize: '0.65rem', mt: 1 }}>
-                    Original - Comprobante de Pago
-                </Typography>
-                <Typography sx={{ fontSize: '0.55rem', mt: 1, color: '#333' }}>
-                    Desarrollado por Colores de Vida C13 Admin
-                </Typography>
-            </Box>
-        </Box>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
+                    <span>MONTO</span>
+                    <span>{priceToString(order.total)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginTop: '4px', fontSize: '13px' }}>
+                    <span>Total</span>
+                    <span>{priceToString(order.total)}</span>
+                </div>
+            </div>
+        </div>
     );
 });
 
