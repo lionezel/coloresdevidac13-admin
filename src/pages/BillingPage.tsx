@@ -23,6 +23,7 @@ import {
     PointOfSale,
     InfoOutlined,
     Print as PrintIcon,
+    Edit,
 } from "@mui/icons-material";
 import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
@@ -32,12 +33,13 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { Product } from "../interfaces/product";
 import { differenceInMinutes } from "date-fns";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Order } from "../interfaces/Order";
 import CheckoutDialog from "../components/CheckoutDialog";
 
 export default function BillingPage() {
     const { restaurantId } = useParams<{ restaurantId: string }>();
+    const navigate = useNavigate();
 
     // Solo traemos órdenes para la caja (orders) y luego guardaremos en success
     const {
@@ -165,6 +167,7 @@ export default function BillingPage() {
                                 order={order}
                                 onCheckout={handleOpenCheckout}
                                 onDelete={deleteItem}
+                                onEdit={(id) => navigate(`/${restaurantId}/edit-order/${id}`)}
                             />
                         </Grid>
                     ))
@@ -185,10 +188,12 @@ function BillingCard({
     order,
     onCheckout,
     onDelete,
+    onEdit,
 }: {
     order: Order;
     onCheckout: (o: Order) => void;
     onDelete: (id: string) => void;
+    onEdit: (id: string) => void;
 }) {
     const componentRef = useRef<HTMLDivElement>(null);
     const handlePrint = useReactToPrint({
@@ -341,6 +346,17 @@ function BillingCard({
                         >
                             Cobrar
                         </Button>
+                        
+                        <MuiTooltip title="Agregar Productos / Editar" arrow>
+                            <IconButton
+                                color="primary"
+                                onClick={() => onEdit(order.id!)}
+                                sx={{ borderRadius: 2.5, p: 1.5, border: "1.5px solid", borderColor: "primary.light" }}
+                            >
+                                <Edit fontSize="small" />
+                            </IconButton>
+                        </MuiTooltip>
+
                         <MuiTooltip title="Eliminar" arrow>
                             <IconButton
                                 color="error"

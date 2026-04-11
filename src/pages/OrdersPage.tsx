@@ -29,6 +29,7 @@ import {
   KeyboardArrowRight,
   InfoOutlined,
   Person,
+  Edit,
 } from "@mui/icons-material";
 import { useCollection } from "../hooks/useCollection";
 import { useAuth } from "../hooks/useAuth";
@@ -212,6 +213,7 @@ export default function OrdersPage() {
                 onUpdateOrder={updateItem}
                 onComplete={handleSendToCashier}
                 onDelete={deleteItem}
+                onEdit={(id) => navigate(`/${restaurantId}/edit-order/${id}`)}
               />
             </Grid>
           ))
@@ -225,7 +227,7 @@ export default function OrdersPage() {
    📦 Tarjeta de Orden (Refinada)
  ======================= */
 
-function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, onComplete, onDelete, onUpdateOrder }: {
+function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, onComplete, onDelete, onEdit, onUpdateOrder }: {
   order: Order;
   allProducts: Product[];
   userRole?: string;
@@ -233,6 +235,7 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
   onUpdateStatus: (id: string, s: OrderStatus) => void;
   onComplete: (o: Order) => void;
   onDelete: (id: string) => void;
+  onEdit: (id: string) => void;
   onUpdateOrder: (id: string, updates: Partial<Order>) => Promise<void> | void;
 }) {
   const date = order.date?.toDate ? order.date.toDate() : new Date(order.date);
@@ -512,6 +515,21 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
             >
               Listo / A Caja
             </Button>
+
+            <MuiTooltip title="Agregar Productos / Editar" arrow>
+              <IconButton
+                color="primary"
+                onClick={() => onEdit(order.id!)}
+                sx={{
+                  borderRadius: 2.5,
+                  p: 1.5,
+                  border: "1.5px solid",
+                  borderColor: "primary.light"
+                }}
+              >
+                <Edit fontSize="small" />
+              </IconButton>
+            </MuiTooltip>
 
             {canDelete && (
               <MuiTooltip title="Eliminar" arrow>

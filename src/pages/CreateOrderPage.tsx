@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -33,7 +33,7 @@ import { Addition } from "../interfaces/Addition";
 import { OrderProduct, Order, OrderStatus } from "../interfaces/Order";
 
 export default function CreateOrderPage() {
-  const { restaurantId } = useParams<{ restaurantId: string }>();
+  const { restaurantId, orderId } = useParams<{ restaurantId: string; orderId?: string }>();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -42,7 +42,7 @@ export default function CreateOrderPage() {
   const { data: categories = [] } = useCollection<{ id: string; name: string }>(restaurantId!, "category");
   const { data: allAdditions = [] } = useCollection<Addition>(restaurantId!, "additions");
 
-  const { createItem: createOrder } = useCollection<Order>(restaurantId!, "orders");
+  const { data: allOrders, createItem: createOrder, updateItem } = useCollection<Order>(restaurantId!, "orders");
 
   // Filter out inactive products
   const products = allProducts.filter(p => p.active);
@@ -61,6 +61,19 @@ export default function CreateOrderPage() {
   const [notes, setNotes] = useState("");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState(false);
+  const [loadedOrder, setLoadedOrder] = useState(false);
+
+  useEffect(() => {
+    if (orderId && allOrders.length > 0 && !loadedOrder) {
+      const order = allOrders.find(o => o.id === orderId);
+      if (order) {
+        setCart(order.products || []);
+        setCustomerName(order.customerName || order.name || "");
+        setNotes(order.notes || "");
+        setLoadedOrder(true);
+      }
+    }
+  }, [orderId, allOrders, loadedOrder]);
 
   // Tabs logic
   const handleTabChange = (_: any, newValue: string) => {
@@ -89,20 +102,41 @@ export default function CreateOrderPage() {
     const additionsTotal = selectedAdditions.reduce((acc, add) => acc + add.price, 0);
     const unitPrice = selectedVariant.price + additionsTotal;
 
-    const newCartItem: OrderProduct = {
-      productId: selectedProduct.id!,
-      productName: selectedProduct.name,
-      variantId: selectedVariant.id,
-      variantLabel: selectedVariant.label,
-      price: unitPrice,
-      quantity: quantity,
-      image: selectedVariant.image || "",
-      total: unitPrice * quantity,
-      additions: selectedAdditions.map(a => ({ id: a.id!, name: a.name, price: a.price })),
-      completed: false
-    };
+    const existingIndex = cart.findIndex((item) => {
+      if (item.productId !== selectedProduct.id || item.variantId !== selectedVariant.id) {
+        return false;
+      }
+      const existingAdditions = item.additions || [];
+      if (existingAdditions.length !== selectedAdditions.length) {
+        return false;
+      }
+      return selectedAdditions.every(add => 
+        existingAdditions.some(extAdd => extAdd.id === add.id)
+      );
+    });
 
-    setCart([...cart, newCartItem]);
+    if (existingIndex !== -1) {
+      const newCart = [...cart];
+      const existingItem = newCart[existingIndex];
+      existingItem.quantity += quantity;
+      existingItem.total = unitPrice * existingItem.quantity;
+      setCart(newCart);
+    } else {
+      const newCartItem: OrderProduct = {
+        productId: selectedProduct.id!,
+        productName: selectedProduct.name,
+        variantId: selectedVariant.id,
+        variantLabel: selectedVariant.label,
+        price: unitPrice,
+        quantity: quantity,
+        image: selectedVariant.image || "",
+        total: unitPrice * quantity,
+        additions: selectedAdditions.map(a => ({ id: a.id!, name: a.name, price: a.price })),
+        completed: false
+      };
+      setCart([...cart, newCartItem]);
+    }
+
     setSelectedProduct(null);
     setSelectedAdditions([]);
   };
@@ -114,11 +148,26 @@ export default function CreateOrderPage() {
   };
 
   const cartTotal = useMemo(() => {
-    return cart.reduce((acc, item) => acc + (item.total || 0), 0);
+    return cart.reduce((acc, item) => acc + Number(item.total ?? Number(item.price) * Number(item.quantity)), 0);
   }, [cart]);
 
   const handleSubmitOrder = async () => {
     if (cart.length === 0) return;
+
+    if (orderId) {
+      await updateItem(orderId, {
+        products: cart,
+        total: cartTotal,
+        subTotal: cartTotal,
+        customerName,
+        notes,
+        name: customerName || `Orden-${orderId.substring(0, 4)}`,
+      });
+      setSuccessMsg(true);
+      if (isMobile) setIsDrawerOpen(false);
+      setTimeout(() => navigate(`/${restaurantId}/orders`), 1000);
+      return;
+    }
 
     const newOrder: Order = {
       name: customerName || `Orden-${Math.floor(Math.random() * 1000)}`,
@@ -204,7 +253,7 @@ export default function CreateOrderPage() {
                   </Box>
                 )}
                 <Typography variant="subtitle2" sx={{ fontWeight: 900, color: "primary.main", textAlign: "right" }}>
-                  ${item.total}
+                  ${Number(item.total ?? Number(item.price) * Number(item.quantity))}
                 </Typography>
               </Box>
             ))}
@@ -260,7 +309,7 @@ export default function CreateOrderPage() {
             "&.Mui-disabled": { bgcolor: "#cbd5e1" }
           }}
         >
-          Confirmar Orden
+          {orderId ? "Guardar Cambios" : "Confirmar Orden"}
         </Button>
       </Box>
     </Box>
@@ -272,7 +321,7 @@ export default function CreateOrderPage() {
       <Box sx={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", bgcolor: "#f8fafc" }}>
         <Box sx={{ p: { xs: 2, md: 3 }, bgcolor: "#fff", borderBottom: "1px solid rgba(226, 232, 240, 0.8)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Box>
-            <Typography variant={isMobile ? "h6" : "h4"} sx={{ fontWeight: 950, color: "#0f172a", letterSpacing: "-0.04em" }}>Nueva Orden</Typography>
+            <Typography variant={isMobile ? "h6" : "h4"} sx={{ fontWeight: 950, color: "#0f172a", letterSpacing: "-0.04em" }}>{orderId ? "Editar Orden" : "Nueva Orden"}</Typography>
             {!isMobile && <Typography variant="body2" sx={{ color: "#64748b", fontWeight: 500 }}>Gestiona pedidos rápidamente con un sistema premium</Typography>}
           </Box>
           <Box sx={{ display: "flex", gap: 1.5 }}>
@@ -558,7 +607,7 @@ export default function CreateOrderPage() {
       {/* Success Snackbar */}
       <Snackbar open={successMsg} autoHideDuration={3000} onClose={() => setSuccessMsg(false)} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>
         <Alert severity="success" variant="filled" sx={{ width: "100%" }}>
-          ¡Orden creada con éxito!
+          {orderId ? "¡Orden actualizada con éxito!" : "¡Orden creada con éxito!"}
         </Alert>
       </Snackbar>
     </Box>

@@ -9,11 +9,14 @@ import {
   CardContent,
   Box,
   IconButton,
+  Collapse,
+  Chip,
   useTheme,
   useMediaQuery,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { GridColDef, GridRowParams } from "@mui/x-data-grid";
 import { PremiumDataGrid } from "../components/PremiumDataGrid";
 
@@ -43,6 +46,20 @@ export default function ProductsPage() {
 
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState<Product | null>(null);
+
+  /* ------------------ FILTER STATE ------------------ */
+  const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [showCategories, setShowCategories] = useState(true);
+
+  const filteredProducts = products.filter((p) => {
+    const matchesName = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory =
+      selectedCategory === "all" || p.category === selectedCategory;
+    return matchesName && matchesCategory;
+  });
+  // NOTE: selectedCategory stores the category NAME (not id),
+  // because ProductDialog saves value={c.name} in its MenuItem.
 
   /* ------------------ DESKTOP COLUMNS ------------------ */
   const columns: GridColDef[] = [
@@ -126,10 +143,150 @@ export default function ProductsPage() {
     </Stack>
   );
 
+  /* ------------------ FILTER BAR ------------------ */
+  const activeLabel =
+    selectedCategory === "all"
+      ? "Todas"
+      : selectedCategory;
+
+  const FilterBar = (
+    <Box mb={2}>
+      {/* Search input */}
+      <Box
+        component="input"
+        placeholder="🔍  Buscar producto..."
+        value={search}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          setSearch(e.target.value)
+        }
+        sx={{
+          width: "100%",
+          mb: 1.5,
+          p: "10px 14px",
+          fontSize: "0.95rem",
+          borderRadius: "10px",
+          border: "1.5px solid",
+          borderColor: "divider",
+          outline: "none",
+          bgcolor: "background.paper",
+          color: "text.primary",
+          transition: "border-color 0.2s",
+          "&:focus": {
+            borderColor: "primary.main",
+            boxShadow: "0 0 0 3px rgba(99,102,241,0.12)",
+          },
+        }}
+      />
+
+      {/* Toggle button */}
+      <Stack direction="row" alignItems="center" spacing={1} mb={showCategories ? 1 : 0}>
+        <Box
+          component="button"
+          onClick={() => setShowCategories((v) => !v)}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: "6px",
+            px: 2,
+            py: 0.75,
+            borderRadius: "20px",
+            border: "1.5px solid",
+            borderColor: "divider",
+            bgcolor: "background.paper",
+            cursor: "pointer",
+            fontWeight: 600,
+            fontSize: "0.82rem",
+            color: "text.secondary",
+            transition: "all 0.18s ease",
+            "&:hover": { borderColor: "primary.main", color: "primary.main" },
+          }}
+        >
+          🏷️ Categorías
+          {selectedCategory !== "all" && (
+            <Chip
+              label={activeLabel}
+              size="small"
+              color="primary"
+              sx={{ height: 18, fontSize: "0.7rem", fontWeight: 700, ml: 0.5 }}
+            />
+          )}
+          <ExpandMoreIcon
+            sx={{
+              fontSize: 18,
+              ml: 0.25,
+              transition: "transform 0.25s ease",
+              transform: showCategories ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+          />
+        </Box>
+
+        {selectedCategory !== "all" && (
+          <Box
+            component="button"
+            onClick={() => setSelectedCategory("all")}
+            sx={{
+              px: 1.5,
+              py: 0.5,
+              borderRadius: "20px",
+              border: "1.5px solid",
+              borderColor: "error.light",
+              bgcolor: "transparent",
+              cursor: "pointer",
+              fontWeight: 600,
+              fontSize: "0.78rem",
+              color: "error.main",
+              transition: "all 0.18s ease",
+              "&:hover": { bgcolor: "error.main", color: "#fff" },
+            }}
+          >
+            ✕ Limpiar
+          </Box>
+        )}
+      </Stack>
+
+      {/* Collapsible chips */}
+      <Collapse in={showCategories} timeout={250}>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap pb={0.5}>
+          {[{ id: "all", name: "Todas" }, ...categories].map((cat) => {
+            // Compare by name because products store category as name, not id
+            const filterValue = cat.id === "all" ? "all" : cat.name;
+            const active = selectedCategory === filterValue;
+            return (
+              <Box
+                key={cat.id}
+                component="button"
+                onClick={() => setSelectedCategory(cat.id === "all" ? "all" : cat.name)}
+                sx={{
+                  px: 2,
+                  py: 0.75,
+                  borderRadius: "20px",
+                  border: "1.5px solid",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: "0.83rem",
+                  transition: "all 0.18s ease",
+                  borderColor: active ? "primary.main" : "divider",
+                  bgcolor: active ? "primary.main" : "background.paper",
+                  color: active ? "#fff" : "text.secondary",
+                  "&:hover": {
+                    borderColor: "primary.main",
+                    color: active ? "#fff" : "primary.main",
+                  },
+                }}
+              >
+                {cat.name}
+              </Box>
+            );
+          })}
+        </Stack>
+      </Collapse>
+    </Box>
+  );
+
   /* ------------------ MOBILE CARDS ------------------ */
   const MobileList = (
     <Stack spacing={2}>
-      {products.map((product) => {
+      {filteredProducts.map((product) => {
         const variant = product.variants?.[0];
         return (
           <Card key={product.id} sx={{ borderRadius: 3 }}>
@@ -180,18 +337,32 @@ export default function ProductsPage() {
           </Card>
         );
       })}
+
+      {filteredProducts.length === 0 && (
+        <Box
+          sx={{
+            textAlign: "center",
+            py: 6,
+            color: "text.secondary",
+            fontStyle: "italic",
+          }}
+        >
+          No se encontraron productos.
+        </Box>
+      )}
     </Stack>
   );
 
   return (
     <>
       {Header}
+      {FilterBar}
 
       {/* DESKTOP */}
       {!isMobile && (
         <Box sx={{ height: 520 }}>
           <PremiumDataGrid
-            rows={products}
+            rows={filteredProducts}
             columns={columns}
             getRowId={(row) => row.id!}
             onRowDoubleClick={(p: GridRowParams) => {

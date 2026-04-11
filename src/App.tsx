@@ -55,6 +55,7 @@ export default function App() {
                   <Route path="cash-closing" element={<CashClosingPage />} />
                   <Route path="orders" element={<OrdersPage />} />
                   <Route path="create-order" element={<CreateOrderPage />} />
+                  <Route path="edit-order/:orderId" element={<CreateOrderPage />} />
                   {/* <Route path="credit-customers" element={<CreditCustomersPage />} /> */}
 
                 </Route>
