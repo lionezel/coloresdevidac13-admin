@@ -171,9 +171,6 @@ export default function CashClosingPage() {
             }
         });
 
-        // Aplicar retención del 5% a las tarjetas (comisión bancaria)
-        totals.tarjeta = totals.tarjeta * 0.95;
-
         // Venta Neta = (Efectivo + Tarjeta + Transferencia) - Descuento Guía
         totals.totalSales = (totals.efectivo + totals.tarjeta + totals.transferencia) - totals.totalGuiaDiscount;
 
@@ -296,7 +293,7 @@ export default function CashClosingPage() {
                             <SummaryCard title="Efectivo" value={summary.efectivo} icon={<LocalAtm />} color="#10b981" />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                            <SummaryCard title="Tarjeta (-5% Comis.)" value={summary.tarjeta} icon={<CreditCard />} color="#3b82f6" />
+                            <SummaryCard title="Tarjeta" value={summary.tarjeta} icon={<CreditCard />} color="#3b82f6" />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6, md: 4 }}>
                             <SummaryCard title="Transferencia" value={summary.transferencia} icon={<AccountBalance />} color="#f59e0b" />
@@ -321,6 +318,7 @@ export default function CashClosingPage() {
                                 <Table stickyHeader>
                                     <TableHead>
                                         <TableRow>
+                                            <TableCell padding="checkbox" />
                                             <TableCell sx={{ fontWeight: 800 }}>Orden</TableCell>
                                             <TableCell sx={{ fontWeight: 800 }}>Hora</TableCell>
                                             <TableCell sx={{ fontWeight: 800 }}>Método</TableCell>
@@ -329,22 +327,11 @@ export default function CashClosingPage() {
                                     </TableHead>
                                     <TableBody>
                                         {todayOrders.map((order) => (
-                                            <TableRow key={order.id} hover>
-                                                <TableCell sx={{ fontWeight: 600 }}>{order.name}</TableCell>
-                                                <TableCell color="text.secondary">
-                                                    {toDate(order).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip label={order.paymentMethod} size="small" variant="outlined" sx={{ fontWeight: 800, fontSize: "0.65rem" }} />
-                                                </TableCell>
-                                                <TableCell align="right" sx={{ fontWeight: 800 }}>
-                                                    {formatCOP(order.total)}
-                                                </TableCell>
-                                            </TableRow>
+                                            <DialogOrderRow key={order.id} order={order} toDate={toDate} />
                                         ))}
                                         {todayOrders.length === 0 && (
                                             <TableRow>
-                                                <TableCell colSpan={4} align="center" sx={{ py: 4, color: "text.disabled" }}>
+                                                <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.disabled" }}>
                                                     No hay ventas registradas hoy todavía.
                                                 </TableCell>
                                             </TableRow>

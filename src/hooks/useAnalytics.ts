@@ -157,13 +157,12 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
       totalUsdReceived += Number((order as any).usdReceived || 0);
       totalChangeInCOP += Number((order as any).changeInCOP || 0);
 
-      // Aplicar retención del 5% si es tarjeta
-      const isCard = pm.includes("tarjeta") || pm.includes("card") || pm.includes("crédito") || pm.includes("debito") || pm.includes("débito") || pm.includes("credito");
-      const netTotal = isCard ? total * 0.95 : total;
+      // No aplicar retención del 5% a tarjetas
+      const netTotal = total;
 
       if (pm.includes("efectivo") || pm === "cash") {
         paymentRevenue.efectivo += total;
-      } else if (isCard) {
+      } else if (pm.includes("tarjeta") || pm.includes("card") || pm.includes("crédito") || pm.includes("debito") || pm.includes("débito") || pm.includes("credito")) {
         paymentRevenue.tarjeta += netTotal;
       } else if (pm.includes("transferencia") || pm.includes("nequi") || pm.includes("bancolombia") || pm.includes("daviplata") || pm.includes("pse")) {
         paymentRevenue.transferencia += total;
@@ -181,9 +180,8 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
         const qty = Number(p.quantity || 1);
         const price = Number(p.price || 0);
         productQtyMap[p.productName] = (productQtyMap[p.productName] || 0) + qty;
-        // Si el producto se pagó con tarjeta, ¿también descontamos el 5% de su revenue? 
-        // Sí, para ser consistentes con el total revenue.
-        const productNetPrice = isCard ? price * 0.95 : price;
+        // Sin retención
+        const productNetPrice = price;
         productRevMap[p.productName] = (productRevMap[p.productName] || 0) + (qty * productNetPrice);
       });
 
@@ -202,8 +200,7 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
     const prevRevenue = previousOrders.reduce((sum, order) => {
       const pm = order.paymentMethod?.toLowerCase() || "";
       const total = Number(order.total || 0);
-      const isCard = pm.includes("tarjeta") || pm.includes("card") || pm.includes("crédito") || pm.includes("debito") || pm.includes("débito") || pm.includes("credito");
-      return sum + (isCard ? total * 0.95 : total);
+      return sum + total;
     }, 0);
     const growth = prevRevenue ? ((revenue - prevRevenue) / prevRevenue) * 100 : (revenue && prevRevenue === 0) ? 100 : 0;
 
