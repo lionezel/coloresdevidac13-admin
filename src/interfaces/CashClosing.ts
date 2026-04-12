@@ -24,6 +24,7 @@ export interface CashClosing {
     totalSales: number;
     totalGuiaDiscount?: number;
     denominations?: {
+        coins50?: number;
         coins100?: number;
         coins200?: number;
         coins500?: number;

@@ -93,35 +93,43 @@ export default function CashClosingPage() {
     const [successMsg, setSuccessMsg] = useState("");
     const [selectedClosing, setSelectedClosing] = useState<CashClosing | null>(null);
     const [dialogTab, setDialogTab] = useState(0);
+    const [targetDateStr, setTargetDateStr] = useState(() => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    });
 
     // --- NUEVOS ESTADOS PARA DESGLOSE ---
     const [denominations, setDenominations] = useState({
-        coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
+        coins50: 0, coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
         bills2000: 0, bills5000: 0, bills10000: 0, bills20000: 0, bills50000: 0, bills100000: 0
     });
     const [expenses, setExpenses] = useState<{ description: string; amount: number }[]>([]);
     const [newExpense, setNewExpense] = useState({ description: "", amount: 0 });
 
     const totalFromBreakdown = useMemo(() => {
-        return (denominations.coins100 * 100) + (denominations.coins200 * 200) + (denominations.coins500 * 500) + (denominations.coins1000 * 1000) +
+        return (denominations.coins50 * 50) + (denominations.coins100 * 100) + (denominations.coins200 * 200) + (denominations.coins500 * 500) + (denominations.coins1000 * 1000) +
             (denominations.bills2000 * 2000) + (denominations.bills5000 * 5000) + (denominations.bills10000 * 10000) +
             (denominations.bills20000 * 20000) + (denominations.bills50000 * 50000) + (denominations.bills100000 * 100000);
     }, [denominations]);
 
     const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + e.amount, 0), [expenses]);
 
-    // Filtrar órdenes de HOY
+    // Filtrar órdenes de la fecha seleccionada
     const todayOrders = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(today.getDate() + 1);
+        const [year, month, day] = targetDateStr.split('-').map(Number);
+        const target = new Date(year, month - 1, day);
+        target.setHours(0, 0, 0, 0);
+        const nextDay = new Date(target);
+        nextDay.setDate(target.getDate() + 1);
 
         return orders.filter(order => {
             const d = toDate(order);
-            return d >= today && d < tomorrow && order.state === "completada";
+            return d >= target && d < nextDay && order.state === "completada";
         });
-    }, [orders]);
+    }, [orders, targetDateStr]);
 
     const selectedClosingOrders = useMemo(() => {
         if (!selectedClosing) return [];
@@ -214,7 +222,7 @@ export default function CashClosingPage() {
         try {
             const closingData: Omit<CashClosing, "id"> = {
                 restaurantId,
-                date: new Date().toISOString().split('T')[0],
+                date: targetDateStr,
                 closedBy: {
                     uid: userDoc.uid || userDoc.id,
                     name: userDoc.name || "Usuario",
@@ -247,7 +255,7 @@ export default function CashClosingPage() {
             setActualTransfer(0);
             setActualCard(0);
             setDenominations({
-                coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
+                coins50: 0, coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
                 bills2000: 0, bills5000: 0, bills10000: 0, bills20000: 0, bills50000: 0, bills100000: 0
             });
             setExpenses([]);
@@ -272,10 +280,12 @@ export default function CashClosingPage() {
                         Resumen diario de ventas y conciliación.
                     </Typography>
                 </Box>
-                <Chip
-                    label={new Date().toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-                    icon={<CalendarMonth />}
-                    sx={{ fontWeight: 700, px: 1, height: 32, borderRadius: 2, bgcolor: "#fff", border: "1px solid #e2e8f0", fontSize: "0.75rem" }}
+                <TextField
+                    type="date"
+                    size="small"
+                    value={targetDateStr}
+                    onChange={(e) => setTargetDateStr(e.target.value)}
+                    sx={{ bgcolor: "#fff", borderRadius: 2, width: { xs: '100%', sm: 160 } }}
                 />
             </Stack>
 
@@ -446,7 +456,7 @@ export default function CashClosingPage() {
 
                                 {/* MONEDAS */}
                                 <Grid size={{ xs: 12 }} sx={{ mt: 1 }}><Typography variant="caption" fontWeight={900} color="text.secondary">MONEDAS</Typography></Grid>
-                                {[1000, 500, 200, 100].map(val => (
+                                {[1000, 500, 200, 100, 50].map(val => (
                                     <Grid size={{ xs: 12, sm: 6 }} key={val}>
                                         <DenominationInput
                                             label={`$${val}`}
@@ -637,7 +647,7 @@ export default function CashClosingPage() {
                                         boxShadow: 4
                                     }}
                                 >
-                                    {loading ? "Guardando..." : "Cerrar Caja Hoy"}
+                                    {loading ? "Guardando..." : "Guardar Cierre de Caja"}
                                 </Button>
                                 {todayOrders.length === 0 && (
                                     <Typography variant="caption" color="error" textAlign="center" fontWeight={600}>
