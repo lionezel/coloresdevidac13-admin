@@ -57,11 +57,28 @@ const statusConfig: Record<
 };
 
 /* =======================
-   🎵 Alerta Sonora
+   🎵 Alertas Sonoras
  ======================= */
 const playNotificationSound = () => {
   const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
   audio.play().catch(() => { });
+};
+
+// Sonido de alerta para demoras (más cálido)
+const delayAudio = new Audio("https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3");
+delayAudio.loop = true;
+
+const playDelaySound = () => {
+  if (delayAudio.paused) {
+    delayAudio.play().catch(() => { });
+  }
+};
+
+const stopDelaySound = () => {
+  if (!delayAudio.paused) {
+    delayAudio.pause();
+    delayAudio.currentTime = 0;
+  }
 };
 
 /* =======================
@@ -100,11 +117,77 @@ export default function OrdersPage() {
   };
 
   /* 🔄 Actualizar tiempos cada 30s */
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     const interval = setInterval(() => setTick((t) => t + 1), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const lastDelaySoundPlayedRef = useRef(0);
+  const isFirstRender = useRef(true);
+
+  /* 🔔 Alerta de Nueva Orden */
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      previousOrdersCount.current = orders.length;
+      return;
+    }
+
+    if (orders.length > previousOrdersCount.current) {
+      // Para evitar que suene cuando Firebase carga el arreglo por primera vez
+      // Validamos si la orden más reciente fue creada hace menos de 2 minutos
+      const newestOrder = [...orders].sort((a, b) => {
+        const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+        const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+        return dateB.getTime() - dateA.getTime(); // Descendente (más nuevos primero)
+      })[0];
+
+      if (newestOrder) {
+        const date = newestOrder.date?.toDate ? newestOrder.date.toDate() : new Date(newestOrder.date);
+        const minutes = differenceInMinutes(new Date(), date);
+        if (minutes < 2) {
+          playNotificationSound();
+        }
+      }
+    }
+    previousOrdersCount.current = orders.length;
+  }, [orders]);
+
+  /* 🔔 Activar alerta sonora de demora automáticamente */
+  useEffect(() => {
+    const hasDelayedOrders = orders.some((order) => {
+      // Ignoramos ordenes finalizadas o en caja
+      if (["completada", "cancelada", "porCobrar", "listo / caja"].includes(order.state)) return false;
+
+      const date = order.date?.toDate ? order.date.toDate() : new Date(order.date);
+      const minutes = differenceInMinutes(new Date(), date);
+      return minutes >= 10;
+    });
+
+    // Empieza a sonar si hay ordenes con demora y estamos viendo "Activas"
+    if (hasDelayedOrders && tabValue === 0) {
+      const now = Date.now();
+      // Si nunca sonó o pasaron 5 minutos (300000ms) desde la última vez
+      if (now - lastDelaySoundPlayedRef.current >= 300000) {
+        lastDelaySoundPlayedRef.current = now;
+        playDelaySound();
+
+        // Detener después de 5 segundos
+        setTimeout(() => {
+          stopDelaySound();
+        }, 5000);
+      }
+    } else {
+      stopDelaySound();
+      if (!hasDelayedOrders) {
+        lastDelaySoundPlayedRef.current = 0; // Resetear para que avise de inmediato cuando haya otra
+      }
+    }
+
+    return () => stopDelaySound();
+  }, [orders, tabValue, tick]);
+
 
   /* 📂 Filtrado y Ordenamiento */
   const filteredOrders = useMemo(() => {
@@ -161,18 +244,18 @@ export default function OrdersPage() {
               border: "1px solid #e2e8f0"
             }}
           >
-          <Tabs
-            value={tabValue}
-            onChange={handleTabChange}
-            sx={{
-              minHeight: 44,
-              "& .MuiTabs-indicator": { height: "100%", borderRadius: 2, zIndex: 0, bgcolor: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" },
-              "& .MuiTab-root": { minHeight: 44, zIndex: 1, textTransform: "none", fontWeight: 700, px: 3, fontSize: "0.95rem", borderRadius: 2 }
-            }}
-          >
-            <Tab label={`Activas (${orders.filter(o => !["completada", "cancelada", "porCobrar", "listo / caja"].includes(o.state)).length})`} />
-            <Tab label="Caja e Historial" />
-          </Tabs>
+            <Tabs
+              value={tabValue}
+              onChange={handleTabChange}
+              sx={{
+                minHeight: 44,
+                "& .MuiTabs-indicator": { height: "100%", borderRadius: 2, zIndex: 0, bgcolor: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" },
+                "& .MuiTab-root": { minHeight: 44, zIndex: 1, textTransform: "none", fontWeight: 700, px: 3, fontSize: "0.95rem", borderRadius: 2 }
+              }}
+            >
+              <Tab label={`Activas (${orders.filter(o => !["completada", "cancelada", "porCobrar", "listo / caja"].includes(o.state)).length})`} />
+              <Tab label="Caja e Historial" />
+            </Tabs>
           </Paper>
         </Box>
       </Stack>
@@ -252,24 +335,24 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
   const { foodItems, drinkItems } = useMemo(() => {
     const food: typeof order.products = [];
     const drinks: typeof order.products = [];
-    
+
     order.products.forEach(p => {
       const productDef = allProducts.find(prod => prod.id === p.productId);
       const cat = productDef?.category?.toLowerCase() || "";
       const name = p.productName.toLowerCase();
-      
-      const isDrink = cat.includes("bebida") || cat.includes("jugo") || cat.includes("gaseosa") || 
-                      cat.includes("cerveza") || cat.includes("licor") || cat.includes("trago") ||
-                      name.includes("bebida") || name.includes("jugo") || name.includes("gaseosa") || 
-                      name.includes("cerveza") || name.includes("limonada") || name.includes("agua");
-      
+
+      const isDrink = cat.includes("bebida") || cat.includes("jugo") || cat.includes("gaseosa") ||
+        cat.includes("cerveza") || cat.includes("licor") || cat.includes("trago") ||
+        name.includes("bebida") || name.includes("jugo") || name.includes("gaseosa") ||
+        name.includes("cerveza") || name.includes("limonada") || name.includes("agua");
+
       if (isDrink) {
         drinks.push(p);
       } else {
         food.push(p);
       }
     });
-    
+
     return { foodItems: food, drinkItems: drinks };
   }, [order.products, allProducts]);
 

@@ -348,6 +348,20 @@ export default function CreateOrderPage() {
     setSelectedAdditions(new Set());
   };
 
+  const handleUpdateCartQuantity = (index: number, delta: number) => {
+    const newCart = [...cart];
+    const newQty = newCart[index].quantity + delta;
+    if (newQty <= 0) {
+      newCart.splice(index, 1);
+      setCart(newCart);
+    } else {
+      newCart[index].quantity = newQty;
+      // unitPrice is embedded in item.price for cart products
+      newCart[index].total = newCart[index].price * newQty;
+      setCart(newCart);
+    }
+  };
+
   const handleRemoveFromCart = (index: number) => {
     const newCart = [...cart];
     newCart.splice(index, 1);
@@ -390,6 +404,17 @@ export default function CreateOrderPage() {
 
   const handleRemoveStandalone = (id: string) =>
     setStandaloneAdditions((prev) => prev.filter((sa) => sa.id !== id));
+
+  const handleUpdateStandaloneQuantity = (id: string, delta: number) => {
+    setStandaloneAdditions((prev) =>
+      prev.map((sa) => {
+        if (sa.id === id) {
+          return { ...sa, quantity: sa.quantity + delta };
+        }
+        return sa;
+      }).filter((sa) => sa.quantity > 0)
+    );
+  };
 
   // ─── Totals ───────────────────────────────────────────────────────────────
   const cartTotal = useMemo(() => {
@@ -540,7 +565,7 @@ export default function CreateOrderPage() {
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
                   <Box flex={1} pr={1}>
                     <Typography variant="body2" sx={{ fontWeight: 800, color: "#1e293b" }}>
-                      {item.quantity}× {item.productName}
+                      {item.productName}
                     </Typography>
                     {item.variantLabel && item.variantLabel !== "Única" && (
                       <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600 }}>
@@ -552,7 +577,7 @@ export default function CreateOrderPage() {
                     size="small"
                     color="error"
                     onClick={() => handleRemoveFromCart(idx)}
-                    sx={{ bgcolor: "#fff1f2", "&:hover": { bgcolor: "#ffe4e6" } }}
+                    sx={{ p: 0.5, bgcolor: "#fff1f2", "&:hover": { bgcolor: "#ffe4e6" } }}
                   >
                     <DeleteOutline fontSize="small" />
                   </IconButton>
@@ -570,9 +595,22 @@ export default function CreateOrderPage() {
                     ))}
                   </Box>
                 )}
-                <Typography variant="subtitle2" sx={{ fontWeight: 900, color: "primary.main", textAlign: "right" }}>
-                  ${Number(item.total ?? Number(item.price) * Number(item.quantity))}
-                </Typography>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <IconButton size="small" onClick={() => handleUpdateCartQuantity(idx, -1)} sx={{ bgcolor: "#f1f5f9", p: 0.5 }}>
+                      <Remove fontSize="small" />
+                    </IconButton>
+                    <Typography variant="body2" sx={{ fontWeight: 900, minWidth: 20, textAlign: "center" }}>
+                      {item.quantity}
+                    </Typography>
+                    <IconButton size="small" onClick={() => handleUpdateCartQuantity(idx, 1)} sx={{ bgcolor: "#f1f5f9", p: 0.5 }}>
+                      <Add fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 900, color: "primary.main", textAlign: "right" }}>
+                    ${Number(item.total ?? Number(item.price) * Number(item.quantity))}
+                  </Typography>
+                </Box>
               </Box>
             ))}
 
@@ -607,26 +645,37 @@ export default function CreateOrderPage() {
                         justifyContent: "space-between",
                       }}
                     >
-                      <Box>
+                      <Box flex={1}>
                         <Typography variant="body2" sx={{ fontWeight: 800, color: "#7c3aed" }}>
-                          {sa.quantity}× {sa.name}
+                          {sa.name}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: "#9333ea", fontWeight: 700 }}>
+                        <Typography variant="caption" sx={{ color: "#9333ea", fontWeight: 700, display: "block" }}>
                           ${sa.price} c/u
                         </Typography>
+                        <Stack direction="row" alignItems="center" spacing={1} mt={1}>
+                          <IconButton size="small" onClick={() => handleUpdateStandaloneQuantity(sa.id, -1)} sx={{ bgcolor: "#f1f5f9", p: 0.5, color: "#7c3aed" }}>
+                            <Remove fontSize="small" />
+                          </IconButton>
+                          <Typography variant="body2" sx={{ fontWeight: 900, minWidth: 20, textAlign: "center", color: "#7c3aed" }}>
+                            {sa.quantity}
+                          </Typography>
+                          <IconButton size="small" onClick={() => handleUpdateStandaloneQuantity(sa.id, 1)} sx={{ bgcolor: "#f1f5f9", p: 0.5, color: "#7c3aed" }}>
+                            <Add fontSize="small" />
+                          </IconButton>
+                        </Stack>
                       </Box>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 900, color: "#7c3aed", mr: 0.5 }}>
-                          ${sa.price * sa.quantity}
-                        </Typography>
+                      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
                         <IconButton
                           size="small"
                           color="error"
                           onClick={() => handleRemoveStandalone(sa.id)}
-                          sx={{ bgcolor: "#fff1f2", "&:hover": { bgcolor: "#ffe4e6" } }}
+                          sx={{ bgcolor: "#fff1f2", "&:hover": { bgcolor: "#ffe4e6" }, p: 0.5 }}
                         >
                           <DeleteOutline fontSize="small" />
                         </IconButton>
+                        <Typography variant="body2" sx={{ fontWeight: 900, color: "#7c3aed" }}>
+                          ${sa.price * sa.quantity}
+                        </Typography>
                       </Box>
                     </Box>
                   ))}
