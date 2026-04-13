@@ -9,6 +9,9 @@ export interface CashClosing {
         name: string;
     };
     openingBalance: number;
+    openingBalanceDesc?: string;
+    previousDayCash?: number;
+    withdrawnAmount?: number;
     actualCash: number;
     difference: number;
     actualTransfer?: number;

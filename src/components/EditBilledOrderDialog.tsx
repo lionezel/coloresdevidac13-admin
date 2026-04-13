@@ -32,8 +32,6 @@ const PAYMENT_METHODS = [
     { value: "efectivo", label: "💵 Efectivo" },
     { value: "tarjeta", label: "💳 Tarjeta de Crédito/Débito" },
     { value: "transferencia", label: "🏦 Transferencia / Nequi" },
-    { value: "fiado", label: "📝 Fiado" },
-    { value: "otro", label: "🏷️ Otro" },
 ];
 
 export default function EditBilledOrderDialog({ open, order, onClose, onSaved }: Props) {

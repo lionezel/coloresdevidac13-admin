@@ -35,16 +35,16 @@ export const InvoiceReceipt = React.forwardRef<HTMLDivElement, InvoiceReceiptPro
     const subtotal = order.subTotal || (order.total + (order.discountAmount || 0) - (order.tipAmount || 0));
 
     return (
-        <div ref={ref} className="bg-white text-black font-mono leading-tight" style={{ fontFamily: '"Courier New", Courier, monospace', width: '300px', margin: '0 auto', fontSize: '12px', padding: '10px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px', textAlign: 'center' }}>
+        <div ref={ref} className="bg-white font-mono leading-tight" style={{ color: '#000', fontWeight: 'bold', fontFamily: '"Courier New", Courier, monospace', width: '300px', margin: '0 auto', fontSize: '12px', padding: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px', textAlign: 'center', fontWeight: '900' }}>
                 <img src="/logoc.jpeg" alt="Colores de Vida" style={{ width: '180px', height: 'auto', marginBottom: '8px', filter: 'grayscale(100%) brightness(0.8) contrast(1.2)' }} />
-                <p style={{ margin: 0 }}>COLORES DE VIDA</p>
+                <p style={{ margin: 0, fontSize: '14px' }}>COLORES DE VIDA</p>
                 <p style={{ margin: 0 }}>2DO TRAMO ESCALERAS ELECTRICAS</p>
                 <p style={{ margin: 0 }}>COMUNA 13 - MEDELLIN</p>
                 <p style={{ margin: 0 }}>TELEFONO: 310 743 3397</p>
                 <p style={{ margin: 0 }}>NIT: 1152185281-1</p>
                 <p style={{ margin: 0 }}>GRACIAS POR VISITARNOS</p>
-                <p style={{ margin: 0 }}>**** CUENTA POR PAGAR ****</p>
+                <p style={{ margin: 0, marginTop: '4px' }}>**** CUENTA POR PAGAR ****</p>
             </div>
 
             <div style={{ marginBottom: '16px' }}>

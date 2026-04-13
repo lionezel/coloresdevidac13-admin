@@ -28,6 +28,7 @@ import {
     Tabs,
     Tab,
     Collapse,
+    Tooltip,
 } from "@mui/material";
 import {
     AttachMoney,
@@ -41,6 +42,7 @@ import {
     Close as CloseIcon,
     KeyboardArrowDown as KeyboardArrowDownIcon,
     KeyboardArrowUp as KeyboardArrowUpIcon,
+    Visibility,
 } from "@mui/icons-material";
 import { useCollection } from "../hooks/useCollection";
 import { useAuth } from "../hooks/useAuth";
@@ -91,10 +93,22 @@ export default function CashClosingPage() {
     const { data: transactions = [], createItem: createTransaction, deleteItem: deleteTransaction } = useCollection<CashTransaction>(restaurantId!, "cashtransactions");
 
     // Estados locales
-    const [openingBalance, setOpeningBalance] = useState<number>(0);
-    const [actualTransfer, setActualTransfer] = useState<number>(0);
-    const [actualCard, setActualCard] = useState<number>(0);
-    const [notes, setNotes] = useState("");
+    const [previousDayCash, setPreviousDayCash] = useState<number>(0);
+    const [withdrawnAmount, setWithdrawnAmount] = useState<number>(0);
+    const [openingBalanceDesc, setOpeningBalanceDesc] = useState<string>("");
+    
+    // Base de apertura calculada
+    const openingBalance = Math.max(0, previousDayCash - withdrawnAmount);
+
+    const [actualTransferStr, setActualTransferStr] = useState<string>(() => {
+        return localStorage.getItem(`closing_actualTransfer_${restaurantId}`) || "";
+    });
+    const [actualCardStr, setActualCardStr] = useState<string>(() => {
+        return localStorage.getItem(`closing_actualCard_${restaurantId}`) || "";
+    });
+    const [notes, setNotes] = useState(() => {
+        return localStorage.getItem(`closing_notes_${restaurantId}`) || "";
+    });
     const [loading, setLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState("");
     const [selectedClosing, setSelectedClosing] = useState<CashClosing | null>(null);
@@ -108,12 +122,55 @@ export default function CashClosingPage() {
     });
 
     // --- NUEVOS ESTADOS PARA DESGLOSE ---
-    const [denominations, setDenominations] = useState({
-        coins50: 0, coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
-        bills2000: 0, bills5000: 0, bills10000: 0, bills20000: 0, bills50000: 0, bills100000: 0
+    const [denominations, setDenominations] = useState(() => {
+        const saved = localStorage.getItem(`closing_denoms_${restaurantId}`);
+        if(saved) { try { return JSON.parse(saved); } catch(e){} }
+        return {
+            coins50: 0, coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
+            bills2000: 0, bills5000: 0, bills10000: 0, bills20000: 0, bills50000: 0, bills100000: 0
+        };
     });
     const [newExpense, setNewExpense] = useState({ description: "", amount: 0 });
     const [newIncome, setNewIncome] = useState({ description: "", amount: 0 });
+
+    const evaluateMath = (str: string) => {
+        if (!str) return 0;
+        try {
+            const sanitized = str.replace(/[^\d+\.\-]/g, '');
+            let total = 0;
+            const terms = sanitized.replace(/\-/g, '+-').split('+');
+            for (const t of terms) {
+                total += Number(t) || 0;
+            }
+            return total;
+        } catch { return 0; }
+    };
+
+    const actualTransfer = useMemo(() => evaluateMath(actualTransferStr), [actualTransferStr]);
+    const actualCard = useMemo(() => evaluateMath(actualCardStr), [actualCardStr]);
+
+    // Guardar en localStorage para que no se pierdan los datos si se recarga (excepto bases de efectivo por DB)
+    React.useEffect(() => {
+        if (!restaurantId) return;
+        localStorage.setItem(`closing_actualTransfer_${restaurantId}`, actualTransferStr);
+        localStorage.setItem(`closing_actualCard_${restaurantId}`, actualCardStr);
+        localStorage.setItem(`closing_notes_${restaurantId}`, notes);
+        localStorage.setItem(`closing_denoms_${restaurantId}`, JSON.stringify(denominations));
+    }, [actualTransferStr, actualCardStr, notes, denominations, restaurantId]);
+
+    // Obtener caja de ayer de la DB
+    React.useEffect(() => {
+        if (closings.length > 0 && previousDayCash === 0 && withdrawnAmount === 0) {
+            const sorted = [...closings].sort((a, b) => {
+                const dA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.date || 0);
+                const dB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.date || 0);
+                return dB.getTime() - dA.getTime();
+            });
+            if (sorted.length > 0) {
+                setPreviousDayCash(sorted[0].actualCash || 0);
+            }
+        }
+    }, [closings, restaurantId]);
 
     const todaysTransactions = useMemo(() => {
         return transactions.filter(t => t.dateStr === targetDateStr);
@@ -144,6 +201,40 @@ export default function CashClosingPage() {
             return d >= target && d < nextDay && order.state === "completada";
         });
     }, [orders, targetDateStr]);
+
+    const existingClosingToday = useMemo(() => {
+        return closings.find(c => c.date === targetDateStr);
+    }, [closings, targetDateStr]);
+
+    const isClosedToday = !!existingClosingToday;
+
+    React.useEffect(() => {
+        if (existingClosingToday) {
+            setPreviousDayCash(existingClosingToday.previousDayCash || 0);
+            setWithdrawnAmount(existingClosingToday.withdrawnAmount || 0);
+            setOpeningBalanceDesc(existingClosingToday.openingBalanceDesc || "");
+            setActualTransferStr(String(existingClosingToday.actualTransfer || ""));
+            setActualCardStr(String(existingClosingToday.actualCard || ""));
+            if (existingClosingToday.denominations) {
+                setDenominations(existingClosingToday.denominations as any);
+            }
+            setNotes(existingClosingToday.notes || "");
+        } else {
+            if (restaurantId) {
+                const savedDenoms = localStorage.getItem(`closing_denoms_${restaurantId}`);
+                if (savedDenoms) { try { setDenominations(JSON.parse(savedDenoms)); } catch (e) { } }
+                else {
+                    setDenominations({
+                        coins50: 0, coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
+                        bills2000: 0, bills5000: 0, bills10000: 0, bills20000: 0, bills50000: 0, bills100000: 0
+                    });
+                }
+                setActualTransferStr(localStorage.getItem(`closing_actualTransfer_${restaurantId}`) || "");
+                setActualCardStr(localStorage.getItem(`closing_actualCard_${restaurantId}`) || "");
+                setNotes(localStorage.getItem(`closing_notes_${restaurantId}`) || "");
+            }
+        }
+    }, [existingClosingToday, restaurantId]);
 
     const selectedClosingOrders = useMemo(() => {
         if (!selectedClosing) return [];
@@ -242,6 +333,9 @@ export default function CashClosingPage() {
                     name: userDoc.name || "Usuario",
                 },
                 openingBalance: Number(openingBalance),
+                openingBalanceDesc,
+                previousDayCash: Number(previousDayCash),
+                withdrawnAmount: Number(withdrawnAmount),
                 actualCash: Number(actualCash),
                 difference: difference,
                 actualTransfer: Number(actualTransfer),
@@ -267,14 +361,22 @@ export default function CashClosingPage() {
 
             await saveClosing(closingData);
             setSuccessMsg("Cierre de caja guardado exitosamente.");
-            setOpeningBalance(0);
-            setActualTransfer(0);
-            setActualCard(0);
+            setPreviousDayCash(0);
+            setWithdrawnAmount(0);
+            setOpeningBalanceDesc("");
+            setActualTransferStr("");
+            setActualCardStr("");
             setDenominations({
                 coins50: 0, coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
                 bills2000: 0, bills5000: 0, bills10000: 0, bills20000: 0, bills50000: 0, bills100000: 0
             });
             setNotes("");
+            if (restaurantId) {
+                localStorage.removeItem(`closing_actualTransfer_${restaurantId}`);
+                localStorage.removeItem(`closing_actualCard_${restaurantId}`);
+                localStorage.removeItem(`closing_notes_${restaurantId}`);
+                localStorage.removeItem(`closing_denoms_${restaurantId}`);
+            }
             setTimeout(() => setSuccessMsg(""), 5000);
         } catch (error) {
             console.error("Error saving cash closing:", error);
@@ -561,374 +663,429 @@ export default function CashClosingPage() {
                 </Grid>
 
                 {!isWaitress && (
-                <Fragment>
-                {/* 📝 FORMULARIO DE CIERRE */}
-                <Grid size={{ xs: 12, lg: 4 }}>
-                    <Card sx={{ borderRadius: 4, border: "1px solid #e2e8f0", mb: 3 }}>
-                        <CardContent sx={{ p: 3 }}>
-                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
-                                <History color="primary" /> Desglose Efectivo
-                            </Typography>
-
-                            <Grid container spacing={1.5}>
-                                {/* BILLETES */}
-                                <Grid size={{ xs: 12 }}><Typography variant="caption" fontWeight={900} color="text.secondary">BILLETES</Typography></Grid>
-                                {[100000, 50000, 20000, 10000, 5000, 2000].map(val => (
-                                    <Grid size={{ xs: 12, sm: 6 }} key={val}>
-                                        <DenominationInput
-                                            label={`$${val / 1000}k`}
-                                            value={denominations[`bills${val}` as keyof typeof denominations]}
-                                            onChange={(n) => setDenominations({ ...denominations, [`bills${val}`]: n })}
-                                        />
-                                    </Grid>
-                                ))}
-
-                                {/* MONEDAS */}
-                                <Grid size={{ xs: 12 }} sx={{ mt: 1 }}><Typography variant="caption" fontWeight={900} color="text.secondary">MONEDAS</Typography></Grid>
-                                {[1000, 500, 200, 100, 50].map(val => (
-                                    <Grid size={{ xs: 12, sm: 6 }} key={val}>
-                                        <DenominationInput
-                                            label={`$${val}`}
-                                            value={denominations[`coins${val}` as keyof typeof denominations]}
-                                            onChange={(n) => setDenominations({ ...denominations, [`coins${val}`]: n })}
-                                        />
-                                    </Grid>
-                                ))}
-                            </Grid>
-
-                            <Box sx={{ mt: 3, p: 2, bgcolor: "#f0fdf4", borderRadius: 3, textAlign: 'center' }}>
-                                <Typography variant="caption" fontWeight={700} color="success.main" display="block">TOTAL CONTADO</Typography>
-                                <Typography variant="h5" fontWeight={900} color="success.dark" sx={{ fontSize: { xs: "1.2rem", md: "1.5rem" } }}>{formatCOP(totalFromBreakdown)}</Typography>
-                            </Box>
-                        </CardContent>
-                    </Card>
-
-                    <Card sx={{ borderRadius: 4, border: "1px solid #e2e8f0", position: { xs: 'relative', md: 'sticky' }, top: 20 }}>
-                        <CardContent sx={{ p: 4 }}>
-                            <Typography variant="h6" fontWeight={800} mb={3}>
-                                Realizar Cierre
-                            </Typography>
-
-                            <Stack spacing={3}>
-                                <TextField
-                                    label="Base de Efectivo (Apertura)"
-                                    type="number"
-                                    fullWidth
-                                    variant="outlined"
-                                    value={openingBalance || ""}
-                                    onChange={(e) => setOpeningBalance(Number(e.target.value))}
-                                    InputProps={{
-                                        startAdornment: <AttachMoney sx={{ color: "text.disabled", mr: 1 }} />,
-                                    }}
-                                    helperText="Dinero con el que inició el turno."
-                                />
-
-                                <Grid container spacing={2} alignItems="center">
-                                    <Grid size={{ xs: 6 }}>
-                                        <Typography variant="caption" color="text.secondary" fontWeight={700}>Efectivo Sistema (Teórico):</Typography>
-                                        <Typography variant="body1" fontWeight={800}>{formatCOP(expectedCash)}</Typography>
-                                    </Grid>
-                                    <Grid size={{ xs: 6 }}>
-                                        <Typography variant="caption" color="text.secondary" fontWeight={700}>Efectivo Real (Desglose):</Typography>
-                                        <Typography variant="body1" fontWeight={900} color="primary.main">{formatCOP(actualCash)}</Typography>
-                                    </Grid>
-                                </Grid>
-
-                                <Divider sx={{ my: 1 }} />
-
-                                <Grid container spacing={2} alignItems="center">
-                                    <Grid size={{ xs: 6 }}>
-                                        <Typography variant="caption" color="text.secondary" fontWeight={700}>Tarjeta Sistema:</Typography>
-                                        <Typography variant="body1" fontWeight={800}>{formatCOP(summary.tarjeta)}</Typography>
-                                    </Grid>
-                                    <Grid size={{ xs: 6 }}>
-                                        <TextField
-                                            label="Tarjeta Real"
-                                            type="number"
-                                            fullWidth
-                                            size="small"
-                                            variant="outlined"
-                                            value={actualCard || ""}
-                                            onChange={(e) => setActualCard(Number(e.target.value))}
-                                            InputProps={{
-                                                startAdornment: <CreditCard sx={{ fontSize: 18, color: "text.disabled", mr: 1 }} />,
-                                            }}
-                                        />
-                                    </Grid>
-                                </Grid>
-
-                                <Divider sx={{ my: 1 }} />
-
-                                <Grid container spacing={2} alignItems="center">
-                                    <Grid size={{ xs: 6 }}>
-                                        <Typography variant="caption" color="text.secondary" fontWeight={700}>Transferencia Sistema:</Typography>
-                                        <Typography variant="body1" fontWeight={800}>{formatCOP(summary.transferencia)}</Typography>
-                                    </Grid>
-                                    <Grid size={{ xs: 6 }}>
-                                        <TextField
-                                            label="Transferencia Real"
-                                            type="number"
-                                            fullWidth
-                                            size="small"
-                                            variant="outlined"
-                                            value={actualTransfer || ""}
-                                            onChange={(e) => setActualTransfer(Number(e.target.value))}
-                                            InputProps={{
-                                                startAdornment: <AccountBalance sx={{ fontSize: 18, color: "text.disabled", mr: 1 }} />,
-                                            }}
-                                        />
-                                    </Grid>
-                                </Grid>
-
-                                <Box sx={{ p: 2, bgcolor: "#f1f5f9", borderRadius: 3, mt: 3 }}>
-                                    <Stack spacing={1}>
-                                        <Typography variant="subtitle2" fontWeight={800} color="primary.dark">RESUMEN DE VENTAS</Typography>
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Ventas Brutas:</Typography>
-                                            <Typography variant="caption" fontWeight={700}>{formatCOP(summary.totalGross)}</Typography>
-                                        </Stack>
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Typography variant="caption" color="error.main" fontWeight={600}>(-) Desc. Guías:</Typography>
-                                            <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(summary.totalGuiaDiscount)}</Typography>
-                                        </Stack>
-                                        <Divider sx={{ my: 0.5 }} />
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Typography variant="caption" color="error.main" fontWeight={600}>(-) Egresos:</Typography>
-                                            <Typography variant="caption" fontWeight={700} color="error.main">- {formatCOP(totalExpenses)}</Typography>
-                                        </Stack>
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Typography variant="caption" color="success.main" fontWeight={600}>(+) Ingresos Extra:</Typography>
-                                            <Typography variant="caption" fontWeight={700} color="success.main">+ {formatCOP(totalIncomes)}</Typography>
-                                        </Stack>
-                                        <Divider sx={{ my: 0.5 }} />
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Typography variant="body2" color="text.primary" fontWeight={800}>Venta Neta:</Typography>
-                                            <Typography variant="body2" fontWeight={900}>{formatCOP(summary.totalSales)}</Typography>
-                                        </Stack>
-                                        <Divider sx={{ my: 1 }} />
-                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
-                                            <Typography variant="body2" color="text.secondary" fontWeight={600}>Teórico en Caja:</Typography>
-                                            <Typography variant="body2" fontWeight={800}>{formatCOP(expectedCash)}</Typography>
-                                        </Stack>
-
-                                        <Divider sx={{ my: 1.5 }} />
-
-                                        <Typography variant="subtitle2" fontWeight={800} color="primary.dark">RESUMEN DE DIFERENCIAS</Typography>
-
-                                        <Stack direction="row" justifyContent="space-between">
-                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Efectivo:</Typography>
-                                            <Typography variant="caption" fontWeight={900} color={difference === 0 ? "text.secondary" : difference > 0 ? "success.main" : "error.main"}>
-                                                {formatCOP(difference)}
-                                            </Typography>
-                                        </Stack>
-
-                                        <Stack direction="row" justifyContent="space-between">
-                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Tarjeta:</Typography>
-                                            <Typography variant="caption" fontWeight={900} color={cardDifference === 0 ? "text.secondary" : cardDifference > 0 ? "success.main" : "error.main"}>
-                                                {formatCOP(cardDifference)}
-                                            </Typography>
-                                        </Stack>
-
-                                        <Stack direction="row" justifyContent="space-between">
-                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Transf.:</Typography>
-                                            <Typography variant="caption" fontWeight={900} color={transferDifference === 0 ? "text.secondary" : transferDifference > 0 ? "success.main" : "error.main"}>
-                                                {formatCOP(transferDifference)}
-                                            </Typography>
-                                        </Stack>
-
-                                        <Divider sx={{ my: 0.5 }} />
-
-                                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                            <Typography variant="subtitle1" fontWeight={800}>Gran Total Dif.:</Typography>
-                                            <Box sx={{ textAlign: "right" }}>
-                                                <Typography variant="subtitle1" fontWeight={1000} color={(difference + cardDifference + transferDifference) === 0 ? "text.primary" : (difference + cardDifference + transferDifference) > 0 ? "success.main" : "error.main"}>
-                                                    {formatCOP(difference + cardDifference + transferDifference)}
-                                                </Typography>
-                                                {(difference + cardDifference + transferDifference) !== 0 && (
-                                                    <Typography variant="caption" fontWeight={900} color={(difference + cardDifference + transferDifference) > 0 ? "success.main" : "error.main"} sx={{ display: 'block', fontSize: '0.65rem' }}>
-                                                        {(difference + cardDifference + transferDifference) > 0 ? "SOBRANTE TOTAL" : "FALTANTE TOTAL"}
-                                                    </Typography>
-                                                )}
-                                            </Box>
-                                        </Stack>
-                                    </Stack>
-                                </Box>
-
-                                <TextField
-                                    label="Notas / Observaciones"
-                                    multiline
-                                    rows={3}
-                                    fullWidth
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    placeholder="Ej: descuadre de caja, gastos menores, etc."
-                                />
-
-                                <Button
-                                    variant="contained"
-                                    size="large"
-                                    fullWidth
-                                    onClick={handleSaveClosing}
-                                    disabled={loading || todayOrders.length === 0}
-                                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save />}
-                                    sx={{
-                                        py: 2,
-                                        borderRadius: 3,
-                                        fontWeight: 900,
-                                        fontSize: "1rem",
-                                        textTransform: "none",
-                                        boxShadow: 4
-                                    }}
-                                >
-                                    {loading ? "Guardando..." : "Guardar Cierre de Caja"}
-                                </Button>
-                                {todayOrders.length === 0 && (
-                                    <Typography variant="caption" color="error" textAlign="center" fontWeight={600}>
-                                        No se puede cerrar sin ventas registradas.
+                    <Fragment>
+                        {/* 📝 FORMULARIO DE CIERRE */}
+                        <Grid size={{ xs: 12, lg: 4 }}>
+                            <Card sx={{ borderRadius: 4, border: "1px solid #e2e8f0", mb: 3 }}>
+                                <CardContent sx={{ p: 3 }}>
+                                    <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
+                                        <History color="primary" /> Desglose Efectivo
                                     </Typography>
-                                )}
-                            </Stack>
-                        </CardContent>
-                    </Card>
-                </Grid>
 
-                {/* 📜 HISTORIAL DE CIERRES */}
-                <Grid size={{ xs: 12 }}>
-                    <Card sx={{ mt: 2, borderRadius: 4, border: "1px solid #e2e8f0" }}>
-                        <CardContent>
-                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
-                                <History color="action" /> Historial
-                            </Typography>
-                            <TableContainer sx={{ mx: { xs: -1, md: 0 }, width: { xs: 'calc(100% + 16px)', md: '100%' }, overflowX: "auto" }}>
-                                <Table>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: 800 }}>Fecha Cierre</TableCell>
-                                            <TableCell sx={{ fontWeight: 800 }}>Realizado por</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 800 }}>Base</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 800 }}>Ventas Totales</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 800 }}>Efectivo Final</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 800 }}>Diferencia</TableCell>
-                                            <TableCell sx={{ fontWeight: 800 }}>Notas</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {closings
-                                            .sort((a, b) => {
-                                                const dA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date();
-                                                const dB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date();
-                                                return dB.getTime() - dA.getTime();
-                                            })
-                                            .map((c) => (
-                                                <TableRow key={c.id} hover onClick={() => setSelectedClosing(c)} sx={{ cursor: 'pointer' }}>
-                                                    <TableCell>
-                                                        <Typography variant="body2" fontWeight={700}>
-                                                            {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : c.date}
+                                    <Grid container spacing={1.5}>
+                                        {/* BILLETES */}
+                                        <Grid size={{ xs: 12 }}><Typography variant="caption" fontWeight={900} color="text.secondary">BILLETES</Typography></Grid>
+                                        {[100000, 50000, 20000, 10000, 5000, 2000].map(val => (
+                                            <Grid size={{ xs: 12, sm: 6 }} key={val}>
+                                                <DenominationInput
+                                                    label={`$${val / 1000}k`}
+                                                    value={denominations[`bills${val}` as keyof typeof denominations]}
+                                                    onChange={(n) => setDenominations({ ...denominations, [`bills${val}`]: n })}
+                                                    disabled={isClosedToday}
+                                                />
+                                            </Grid>
+                                        ))}
+
+                                        {/* MONEDAS */}
+                                        <Grid size={{ xs: 12 }} sx={{ mt: 1 }}><Typography variant="caption" fontWeight={900} color="text.secondary">MONEDAS</Typography></Grid>
+                                        {[1000, 500, 200, 100, 50].map(val => (
+                                            <Grid size={{ xs: 12, sm: 6 }} key={val}>
+                                                <DenominationInput
+                                                    label={`$${val}`}
+                                                    value={denominations[`coins${val}` as keyof typeof denominations]}
+                                                    onChange={(n) => setDenominations({ ...denominations, [`coins${val}`]: n })}
+                                                    disabled={isClosedToday}
+                                                />
+                                            </Grid>
+                                        ))}
+                                    </Grid>
+
+                                    <Box sx={{ mt: 3, p: 2, bgcolor: "#f0fdf4", borderRadius: 3, textAlign: 'center' }}>
+                                        <Typography variant="caption" fontWeight={700} color="success.main" display="block">TOTAL CONTADO</Typography>
+                                        <Typography variant="h5" fontWeight={900} color="success.dark" sx={{ fontSize: { xs: "1.2rem", md: "1.5rem" } }}>{formatCOP(totalFromBreakdown)}</Typography>
+                                    </Box>
+                                </CardContent>
+                            </Card>
+
+                            <Card sx={{ borderRadius: 4, border: "1px solid #e2e8f0", position: { xs: 'relative', md: 'sticky' }, top: 20 }}>
+                                <CardContent sx={{ p: 4 }}>
+                                    <Typography variant="h6" fontWeight={800} mb={3}>
+                                        Realizar Cierre
+                                    </Typography>
+
+                                    <Stack spacing={3}>
+                                        <TextField
+                                            label="Efectivo Anterior (Ayer)"
+                                            type="number"
+                                            fullWidth
+                                            variant="outlined"
+                                            value={previousDayCash || ""}
+                                            onChange={(e) => setPreviousDayCash(Number(e.target.value))}
+                                            disabled={isClosedToday}
+                                            InputProps={{
+                                                startAdornment: <AttachMoney sx={{ color: "text.disabled", mr: 1 }} />,
+                                            }}
+                                            helperText="Efectivo del último cierre."
+                                        />
+
+                                        <TextField
+                                            label="Retiro (Lo que me llevo de la caja)"
+                                            type="number"
+                                            fullWidth
+                                            variant="outlined"
+                                            value={withdrawnAmount || ""}
+                                            onChange={(e) => setWithdrawnAmount(Number(e.target.value))}
+                                            disabled={isClosedToday}
+                                            InputProps={{
+                                                startAdornment: <AttachMoney sx={{ color: "error.main", mr: 1 }} />,
+                                            }}
+                                            helperText="Le descontaremos esto al efectivo anterior."
+                                            sx={{ mt: 2 }}
+                                        />
+
+                                        <TextField
+                                            label="¿Por qué o para qué se retiró?"
+                                            fullWidth
+                                            size="small"
+                                            variant="outlined"
+                                            value={openingBalanceDesc || ""}
+                                            onChange={(e) => setOpeningBalanceDesc(e.target.value)}
+                                            disabled={isClosedToday}
+                                            helperText="Especifique el motivo del retiro de hoy."
+                                            sx={{ mt: 2 }}
+                                        />
+                                        
+                                        <Box sx={{ p: 2, mt: 2, bgcolor: "#f0fdf4", borderRadius: 2 }}>
+                                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                                <Typography variant="caption" color="success.dark" fontWeight={800}>BASE DE APERTURA HOY:</Typography>
+                                                <Typography variant="h6" fontWeight={900} color="success.dark">{formatCOP(openingBalance)}</Typography>
+                                            </Stack>
+                                        </Box>
+
+                                        <Grid container spacing={2} alignItems="center" sx={{ mt: 1 }}>
+                                            <Grid size={{ xs: 6 }}>
+                                                <Typography variant="caption" color="text.secondary" fontWeight={700}>Efectivo Sistema (Teórico):</Typography>
+                                                <Typography variant="body1" fontWeight={800}>{formatCOP(expectedCash)}</Typography>
+                                            </Grid>
+                                            <Grid size={{ xs: 6 }}>
+                                                <Typography variant="caption" color="text.secondary" fontWeight={700}>Efectivo Real (Desglose):</Typography>
+                                                <Typography variant="body1" fontWeight={900} color="primary.main">{formatCOP(actualCash)}</Typography>
+                                            </Grid>
+                                        </Grid>
+
+                                        <Divider sx={{ my: 1 }} />
+
+                                        <Grid container spacing={2} alignItems="center">
+                                            <Grid size={{ xs: 6 }}>
+                                                <Typography variant="caption" color="text.secondary" fontWeight={700}>Tarjeta Sistema:</Typography>
+                                                <Typography variant="body1" fontWeight={800}>{formatCOP(summary.tarjeta)}</Typography>
+                                            </Grid>
+                                            <Grid size={{ xs: 6 }}>
+                                                <TextField
+                                                    label="Tarjeta Real (Suma ej. 20000+10000)"
+                                                    type="text"
+                                                    fullWidth
+                                                    size="small"
+                                                    variant="outlined"
+                                                    value={actualCardStr || ""}
+                                                    onChange={(e) => setActualCardStr(e.target.value)}
+                                                    disabled={isClosedToday}
+                                                    InputProps={{
+                                                        startAdornment: <CreditCard sx={{ fontSize: 18, color: "text.disabled", mr: 1 }} />,
+                                                    }}
+                                                    helperText={actualCardStr && actualCard !== 0 ? `Total: ${formatCOP(actualCard)}` : ""}
+                                                />
+                                            </Grid>
+                                        </Grid>
+
+                                        <Divider sx={{ my: 1 }} />
+
+                                        <Grid container spacing={2} alignItems="center">
+                                            <Grid size={{ xs: 6 }}>
+                                                <Typography variant="caption" color="text.secondary" fontWeight={700}>Transferencia Sistema:</Typography>
+                                                <Typography variant="body1" fontWeight={800}>{formatCOP(summary.transferencia)}</Typography>
+                                            </Grid>
+                                            <Grid size={{ xs: 6 }}>
+                                                <TextField
+                                                    label="Transferencia Real (Suma ej. 20000+10000)"
+                                                    type="text"
+                                                    fullWidth
+                                                    size="small"
+                                                    variant="outlined"
+                                                    value={actualTransferStr || ""}
+                                                    onChange={(e) => setActualTransferStr(e.target.value)}
+                                                    disabled={isClosedToday}
+                                                    InputProps={{
+                                                        startAdornment: <AccountBalance sx={{ fontSize: 18, color: "text.disabled", mr: 1 }} />,
+                                                    }}
+                                                    helperText={actualTransferStr && actualTransfer !== 0 ? `Total: ${formatCOP(actualTransfer)}` : ""}
+                                                />
+                                            </Grid>
+                                        </Grid>
+
+                                        <Box sx={{ p: 2, bgcolor: "#f1f5f9", borderRadius: 3, mt: 3 }}>
+                                            <Stack spacing={1}>
+                                                <Typography variant="subtitle2" fontWeight={800} color="primary.dark">RESUMEN DE VENTAS</Typography>
+                                                <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>Ventas Brutas:</Typography>
+                                                    <Typography variant="caption" fontWeight={700}>{formatCOP(summary.totalGross)}</Typography>
+                                                </Stack>
+                                                <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                    <Typography variant="caption" color="error.main" fontWeight={600}>(-) Desc. Guías:</Typography>
+                                                    <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(summary.totalGuiaDiscount)}</Typography>
+                                                </Stack>
+                                                <Divider sx={{ my: 0.5 }} />
+                                                <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                    <Typography variant="caption" color="error.main" fontWeight={600}>(-) Egresos:</Typography>
+                                                    <Typography variant="caption" fontWeight={700} color="error.main">- {formatCOP(totalExpenses)}</Typography>
+                                                </Stack>
+                                                <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                    <Typography variant="caption" color="success.main" fontWeight={600}>(+) Ingresos Extra:</Typography>
+                                                    <Typography variant="caption" fontWeight={700} color="success.main">+ {formatCOP(totalIncomes)}</Typography>
+                                                </Stack>
+                                                <Divider sx={{ my: 0.5 }} />
+                                                <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                    <Typography variant="body2" color="text.primary" fontWeight={800}>Venta Neta:</Typography>
+                                                    <Typography variant="body2" fontWeight={900}>{formatCOP(summary.totalSales)}</Typography>
+                                                </Stack>
+                                                <Divider sx={{ my: 1 }} />
+                                                <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                                    <Typography variant="body2" color="text.secondary" fontWeight={600}>Teórico en Caja:</Typography>
+                                                    <Typography variant="body2" fontWeight={800}>{formatCOP(expectedCash)}</Typography>
+                                                </Stack>
+
+                                                <Divider sx={{ my: 1.5 }} />
+
+                                                <Typography variant="subtitle2" fontWeight={800} color="primary.dark">RESUMEN DE DIFERENCIAS</Typography>
+
+                                                <Stack direction="row" justifyContent="space-between">
+                                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Efectivo:</Typography>
+                                                    <Typography variant="caption" fontWeight={900} color={difference === 0 ? "text.secondary" : difference > 0 ? "success.main" : "error.main"}>
+                                                        {formatCOP(difference)}
+                                                    </Typography>
+                                                </Stack>
+
+                                                <Stack direction="row" justifyContent="space-between">
+                                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Tarjeta:</Typography>
+                                                    <Typography variant="caption" fontWeight={900} color={cardDifference === 0 ? "text.secondary" : cardDifference > 0 ? "success.main" : "error.main"}>
+                                                        {formatCOP(cardDifference)}
+                                                    </Typography>
+                                                </Stack>
+
+                                                <Stack direction="row" justifyContent="space-between">
+                                                    <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Transf.:</Typography>
+                                                    <Typography variant="caption" fontWeight={900} color={transferDifference === 0 ? "text.secondary" : transferDifference > 0 ? "success.main" : "error.main"}>
+                                                        {formatCOP(transferDifference)}
+                                                    </Typography>
+                                                </Stack>
+
+                                                <Divider sx={{ my: 0.5 }} />
+
+                                                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                                    <Typography variant="subtitle1" fontWeight={800}>Gran Total Dif.:</Typography>
+                                                    <Box sx={{ textAlign: "right" }}>
+                                                        <Typography variant="subtitle1" fontWeight={1000} color={(difference + cardDifference + transferDifference) === 0 ? "text.primary" : (difference + cardDifference + transferDifference) > 0 ? "success.main" : "error.main"}>
+                                                            {formatCOP(difference + cardDifference + transferDifference)}
                                                         </Typography>
-                                                        <Typography variant="caption" color="text.secondary">
-                                                            {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Stack direction="row" spacing={1} alignItems="center">
-                                                            <Avatar sx={{ width: 24, height: 24, fontSize: "0.75rem", bgcolor: "secondary.main" }}>
-                                                                {c.closedBy?.name?.charAt(0)}
-                                                            </Avatar>
-                                                            <Typography variant="body2" fontWeight={600}>{c.closedBy?.name}</Typography>
-                                                        </Stack>
-                                                    </TableCell>
-                                                    <TableCell align="right">{formatCOP(c.openingBalance)}</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCOP(c.totalSales)}</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 1000, color: "primary.main" }}>
-                                                        {formatCOP(c.actualCash || (c.totals?.efectivo || 0) + (c.openingBalance || 0))}
-                                                    </TableCell>
-                                                    <TableCell align="right">
-                                                        <Typography variant="body2" fontWeight={800} color={(c.difference || 0) === 0 ? "text.secondary" : (c.difference || 0) > 0 ? "success.main" : "error.main"}>
-                                                            Efe: {formatCOP(c.difference || 0)}
-                                                        </Typography>
-                                                        {c.cardDifference !== undefined && (
-                                                            <Typography variant="body2" fontWeight={800} color={c.cardDifference === 0 ? "text.secondary" : c.cardDifference > 0 ? "success.main" : "error.main"}>
-                                                                Tar: {formatCOP(c.cardDifference)}
+                                                        {(difference + cardDifference + transferDifference) !== 0 && (
+                                                            <Typography variant="caption" fontWeight={900} color={(difference + cardDifference + transferDifference) > 0 ? "success.main" : "error.main"} sx={{ display: 'block', fontSize: '0.65rem' }}>
+                                                                {(difference + cardDifference + transferDifference) > 0 ? "SOBRANTE TOTAL" : "FALTANTE TOTAL"}
                                                             </Typography>
                                                         )}
-                                                        {c.transferDifference !== undefined && (
-                                                            <Typography variant="body2" fontWeight={800} color={c.transferDifference === 0 ? "text.secondary" : c.transferDifference > 0 ? "success.main" : "error.main"}>
-                                                                Tra: {formatCOP(c.transferDifference)}
-                                                            </Typography>
-                                                        )}
-                                                        {((c.difference || 0) !== 0 || (c.cardDifference || 0) !== 0 || (c.transferDifference || 0) !== 0) && (
-                                                            <Typography variant="caption" fontWeight={900} color={((c.difference || 0) + (c.cardDifference || 0) + (c.transferDifference || 0)) > 0 ? "success.main" : "error.main"} sx={{ fontSize: '0.6rem' }}>
-                                                                {((c.difference || 0) + (c.cardDifference || 0) + (c.transferDifference || 0)) > 0 ? "SOBRANTE" : "FALTANTE"}
-                                                            </Typography>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                                            {c.notes || "—"}
-                                                        </Typography>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        {closings.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={6} align="center" sx={{ py: 4, color: "text.disabled" }}>
-                                                    No hay historial de cierres.
-                                                </TableCell>
-                                            </TableRow>
+                                                    </Box>
+                                                </Stack>
+                                            </Stack>
+                                        </Box>
+
+                                        <TextField
+                                            label="Notas / Observaciones"
+                                            multiline
+                                            rows={3}
+                                            fullWidth
+                                            value={notes}
+                                            onChange={(e) => setNotes(e.target.value)}
+                                            disabled={isClosedToday}
+                                            placeholder="Ej: descuadre de caja, gastos menores, etc."
+                                        />
+
+                                        <Button
+                                            variant="contained"
+                                            size="large"
+                                            fullWidth
+                                            onClick={handleSaveClosing}
+                                            disabled={loading || todayOrders.length === 0 || isClosedToday}
+                                            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save />}
+                                            sx={{
+                                                py: 2,
+                                                borderRadius: 3,
+                                                fontWeight: 900,
+                                                fontSize: "1rem",
+                                                textTransform: "none",
+                                                boxShadow: 4
+                                            }}
+                                        >
+                                            {isClosedToday ? "Día ya cerrado" : loading ? "Guardando..." : "Guardar Cierre de Caja"}
+                                        </Button>
+                                        {isClosedToday && (
+                                            <Typography variant="caption" color="success.main" textAlign="center" fontWeight={800} mt={1} display="block">
+                                                Caja cerrada correctamente para este día.
+                                            </Typography>
                                         )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        </CardContent>
-                    </Card>
-                </Grid>
+                                        {todayOrders.length === 0 && !isClosedToday && (
+                                            <Typography variant="caption" color="error" textAlign="center" fontWeight={600}>
+                                                No se puede cerrar sin ventas registradas.
+                                            </Typography>
+                                        )}
+                                    </Stack>
+                                </CardContent>
+                            </Card>
+                        </Grid>
 
-                {/* 📊 MÉTRICAS DE NEGOCIO */}
-                <Grid size={{ xs: 12 }}>
-                    <Card sx={{ mt: 3, borderRadius: 4, border: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
-                        <CardContent sx={{ p: 4 }}>
-                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <History color="primary" /> Rendimiento del Negocio (Últimos 30 días)
-                            </Typography>
+                        {/* 📜 HISTORIAL DE CIERRES */}
+                        <Grid size={{ xs: 12 }}>
+                            <Card sx={{ mt: 2, borderRadius: 4, border: "1px solid #e2e8f0" }}>
+                                <CardContent>
+                                    <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
+                                        <History color="action" /> Historial
+                                    </Typography>
+                                    <TableContainer sx={{ mx: { xs: -1, md: 0 }, width: { xs: 'calc(100% + 16px)', md: '100%' }, overflowX: "auto" }}>
+                                        <Table>
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell sx={{ fontWeight: 800 }}>Fecha Cierre</TableCell>
+                                                    <TableCell sx={{ fontWeight: 800 }}>Realizado por</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Base</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Ventas Totales</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Efectivo Final</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Diferencia</TableCell>
+                                                    <TableCell sx={{ fontWeight: 800 }}>Notas</TableCell>
+                                                    <TableCell align="center" sx={{ fontWeight: 800 }}>Detalle</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {closings
+                                                    .sort((a, b) => {
+                                                        const dA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date();
+                                                        const dB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date();
+                                                        return dB.getTime() - dA.getTime();
+                                                    })
+                                                    .map((c) => (
+                                                        <TableRow key={c.id} hover onClick={() => setSelectedClosing(c)} sx={{ cursor: 'pointer' }}>
+                                                            <TableCell>
+                                                                <Typography variant="body2" fontWeight={700}>
+                                                                    {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : c.date}
+                                                                </Typography>
+                                                                <Typography variant="caption" color="text.secondary">
+                                                                    {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                                    <Avatar sx={{ width: 24, height: 24, fontSize: "0.75rem", bgcolor: "secondary.main" }}>
+                                                                        {c.closedBy?.name?.charAt(0)}
+                                                                    </Avatar>
+                                                                    <Typography variant="body2" fontWeight={600}>{c.closedBy?.name}</Typography>
+                                                                </Stack>
+                                                            </TableCell>
+                                                            <TableCell align="right">{formatCOP(c.openingBalance)}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCOP(c.totalSales)}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 1000, color: "primary.main" }}>
+                                                                {formatCOP(c.actualCash || (c.totals?.efectivo || 0) + (c.openingBalance || 0))}
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <Typography variant="body2" fontWeight={800} color={(c.difference || 0) === 0 ? "text.secondary" : (c.difference || 0) > 0 ? "success.main" : "error.main"}>
+                                                                    Efe: {formatCOP(c.difference || 0)}
+                                                                </Typography>
+                                                                {c.cardDifference !== undefined && (
+                                                                    <Typography variant="body2" fontWeight={800} color={c.cardDifference === 0 ? "text.secondary" : c.cardDifference > 0 ? "success.main" : "error.main"}>
+                                                                        Tar: {formatCOP(c.cardDifference)}
+                                                                    </Typography>
+                                                                )}
+                                                                {c.transferDifference !== undefined && (
+                                                                    <Typography variant="body2" fontWeight={800} color={c.transferDifference === 0 ? "text.secondary" : c.transferDifference > 0 ? "success.main" : "error.main"}>
+                                                                        Tra: {formatCOP(c.transferDifference)}
+                                                                    </Typography>
+                                                                )}
+                                                                {((c.difference || 0) !== 0 || (c.cardDifference || 0) !== 0 || (c.transferDifference || 0) !== 0) && (
+                                                                    <Typography variant="caption" fontWeight={900} color={((c.difference || 0) + (c.cardDifference || 0) + (c.transferDifference || 0)) > 0 ? "success.main" : "error.main"} sx={{ fontSize: '0.6rem' }}>
+                                                                        {((c.difference || 0) + (c.cardDifference || 0) + (c.transferDifference || 0)) > 0 ? "SOBRANTE" : "FALTANTE"}
+                                                                    </Typography>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                                                    {c.notes || "—"}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Tooltip title="Ver desglose completo de billetes, órdenes y egresos">
+                                                                    <IconButton color="primary" onClick={(e) => { e.stopPropagation(); setSelectedClosing(c); }}>
+                                                                        <Visibility />
+                                                                    </IconButton>
+                                                                </Tooltip>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                {closings.length === 0 && (
+                                                    <TableRow>
+                                                        <TableCell colSpan={6} align="center" sx={{ py: 4, color: "text.disabled" }}>
+                                                            No hay historial de cierres.
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                </CardContent>
+                            </Card>
+                        </Grid>
 
-                            <Grid container spacing={{ xs: 1.5, md: 3 }}>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <SummaryCard
-                                        title="Ventas Totales (Netas)"
-                                        value={businessMetrics.totalNetSales}
-                                        icon={<AttachMoney />}
-                                        color="#10b981"
-                                    />
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <SummaryCard
-                                        title="Total Descuentos Guía"
-                                        value={businessMetrics.totalGuiaDiscount}
-                                        icon={<LocalAtm />}
-                                        color="#ed6c02"
-                                    />
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <SummaryCard
-                                        title="Total Egresos"
-                                        value={businessMetrics.totalExpenses}
-                                        icon={<LocalAtm />}
-                                        color="#ef4444"
-                                    />
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                                    <SummaryCard
-                                        title="Diferencia Acumulada"
-                                        value={businessMetrics.totalDifference}
-                                        icon={<History />}
-                                        color={businessMetrics.totalDifference >= 0 ? "#10b981" : "#ef4444"}
-                                    />
-                                </Grid>
-                            </Grid>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                </Fragment>
+                        {/* 📊 MÉTRICAS DE NEGOCIO */}
+                        <Grid size={{ xs: 12 }}>
+                            <Card sx={{ mt: 3, borderRadius: 4, border: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
+                                <CardContent sx={{ p: 4 }}>
+                                    <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <History color="primary" /> Rendimiento del Negocio (Últimos 30 días)
+                                    </Typography>
+
+                                    <Grid container spacing={{ xs: 1.5, md: 3 }}>
+                                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                            <SummaryCard
+                                                title="Ventas Totales (Netas)"
+                                                value={businessMetrics.totalNetSales}
+                                                icon={<AttachMoney />}
+                                                color="#10b981"
+                                            />
+                                        </Grid>
+                                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                            <SummaryCard
+                                                title="Total Descuentos Guía"
+                                                value={businessMetrics.totalGuiaDiscount}
+                                                icon={<LocalAtm />}
+                                                color="#ed6c02"
+                                            />
+                                        </Grid>
+                                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                            <SummaryCard
+                                                title="Total Egresos"
+                                                value={businessMetrics.totalExpenses}
+                                                icon={<LocalAtm />}
+                                                color="#ef4444"
+                                            />
+                                        </Grid>
+                                        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                            <SummaryCard
+                                                title="Diferencia Acumulada"
+                                                value={businessMetrics.totalDifference}
+                                                icon={<History />}
+                                                color={businessMetrics.totalDifference >= 0 ? "#10b981" : "#ef4444"}
+                                            />
+                                        </Grid>
+                                    </Grid>
+                                </CardContent>
+                            </Card>
+                        </Grid>
+                    </Fragment>
                 )}
             </Grid>
 
@@ -985,7 +1142,7 @@ export default function CashClosingPage() {
                                                 <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.openingBalance)}</Typography>
                                             </Stack>
                                             <Stack direction="row" justifyContent="space-between">
-                                                z                         <Typography variant="body2" color="text.secondary" fontWeight={700}>Ventas Totales Netas</Typography>
+                                                <Typography variant="body2" color="text.secondary" fontWeight={700}>Ventas Totales Netas</Typography>
                                                 <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.totalSales)}</Typography>
                                             </Stack>
                                             <Stack direction="row" justifyContent="space-between">
@@ -1128,7 +1285,6 @@ export default function CashClosingPage() {
                                                     { label: "$100", key: "coins100", val: 100 },
                                                 ].map(d => {
                                                     const qty = (selectedClosing.denominations as any)?.[d.key] || 0;
-                                                    if (qty === 0) return null;
                                                     return (
                                                         <TableRow key={d.key}>
                                                             <TableCell sx={{ fontWeight: 600 }}>{d.label}</TableCell>
@@ -1138,7 +1294,7 @@ export default function CashClosingPage() {
                                                     );
                                                 })}
                                                 <TableRow sx={{ bgcolor: "#f0fdf4" }}>
-                                                    <TableCell colSpan={2} sx={{ fontWeight: 800 }}>TOTAL RECOLECTADO</TableCell>
+                                                    <TableCell colSpan={2} sx={{ fontWeight: 800 }}>TOTAL CONTADO</TableCell>
                                                     <TableCell align="right" sx={{ fontWeight: 900, color: "success.dark" }}>
                                                         {formatCOP(selectedClosing.actualCash)}
                                                     </TableCell>
@@ -1225,19 +1381,20 @@ function SummaryCard({ title, value, icon, color, isTotal }: { title: string; va
     );
 }
 
-function DenominationInput({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
+function DenominationInput({ label, value, onChange, disabled }: { label: string; value: number; onChange: (n: number) => void; disabled?: boolean }) {
     return (
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ bgcolor: "#f1f5f9", p: 1, borderRadius: 2 }}>
-            <Typography variant="caption" sx={{ minWidth: 40, fontWeight: 700, color: "#64748b" }}>{label}</Typography>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ bgcolor: disabled ? "#f8fafc" : "#f1f5f9", p: 1, borderRadius: 2 }}>
+            <Typography variant="caption" sx={{ minWidth: 40, fontWeight: 700, color: disabled ? "#94a3b8" : "#64748b" }}>{label}</Typography>
             <TextField
                 type="number"
                 size="small"
                 variant="standard"
                 value={value === 0 ? "" : value}
                 onChange={(e) => onChange(Number(e.target.value))}
-                inputProps={{ style: { textAlign: 'right', fontWeight: 800, fontSize: '0.9rem' } }}
+                inputProps={{ style: { textAlign: 'right', fontWeight: 800, fontSize: '0.9rem' }, readOnly: disabled }}
                 InputProps={{ disableUnderline: true }}
-                sx={{ bgcolor: "#fff", px: 1, borderRadius: 1 }}
+                sx={{ bgcolor: disabled ? 'transparent' : "#fff", px: 1, borderRadius: 1 }}
+                disabled={disabled}
             />
         </Stack>
     );
