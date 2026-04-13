@@ -14,6 +14,13 @@ import {
     Fade,
     IconButton,
     Tooltip as MuiTooltip,
+    Table,
+    TableBody,
+    TableCell,
+    TableContainer,
+    TableHead,
+    TableRow,
+    Paper,
 } from "@mui/material";
 import {
     AccessTime,
@@ -24,22 +31,28 @@ import {
     InfoOutlined,
     Print as PrintIcon,
     Edit,
+    History,
+    Replay,
 } from "@mui/icons-material";
 import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import { InvoiceReceipt } from "../components/InvoiceReceipt";
 import { useCollection } from "../hooks/useCollection";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, addDoc, collection, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { Product } from "../interfaces/product";
 import { differenceInMinutes } from "date-fns";
 import { useParams, useNavigate } from "react-router-dom";
 import { Order } from "../interfaces/Order";
 import CheckoutDialog from "../components/CheckoutDialog";
+import EditBilledOrderDialog from "../components/EditBilledOrderDialog";
+import { useAuth } from "../hooks/useAuth";
 
 export default function BillingPage() {
     const { restaurantId } = useParams<{ restaurantId: string }>();
     const navigate = useNavigate();
+    const { userDoc } = useAuth();
+    const isAdmin = userDoc?.isAdmin === true || userDoc?.role === "admin";
 
     // Solo traemos órdenes para la caja (orders) y luego guardaremos en success
     const {
@@ -47,12 +60,43 @@ export default function BillingPage() {
         deleteItem,
     } = useCollection<Order>(restaurantId!, "orders");
 
-    const { createItem: createSuccess } = useCollection<Order>(
+    const { createItem: createSuccess, data: successOrders = [] } = useCollection<Order>(
         restaurantId!,
         "orderssuccess"
     );
 
     const [orderToCheckout, setOrderToCheckout] = useState<Order | null>(null);
+    const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
+    const [editOpen, setEditOpen] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    // Órdenes facturadas del día actual
+    const todayBilled = useMemo(() => {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+
+        return successOrders
+            .filter((o) => {
+                const raw = (o as any).dateSuccess || (o as any).date;
+                if (!raw) return false;
+                let d: Date;
+                if (typeof raw.toDate === "function") d = raw.toDate();
+                else if (raw instanceof Date) d = raw;
+                else d = new Date(raw);
+                return d >= now && d < tomorrow;
+            })
+            .sort((a, b) => {
+                const toD = (o: any) => {
+                    const raw = o.dateSuccess || o.date;
+                    if (!raw) return new Date();
+                    if (typeof raw.toDate === "function") return raw.toDate();
+                    return new Date(raw);
+                };
+                return toD(b).getTime() - toD(a).getTime();
+            });
+    }, [successOrders, refreshKey]);
 
     // Filtrar SOLAMENTE las que están "porCobrar" o "listo / caja"
     const ordersToBill = useMemo(() => {
@@ -114,6 +158,35 @@ export default function BillingPage() {
         } catch (error) {
             console.error("Error al procesar inventario o caja:", error);
             alert("Error al procesar la orden o el inventario. Revisa la consola.");
+        }
+    };
+
+    const handleReopenOrder = async (order: Order) => {
+        if (!restaurantId || !order.id) return;
+        if (!window.confirm(`¿Deseas reabrir la orden "${order.name}" para re-facturarla?`)) return;
+        try {
+            // Mover a orders con estado porCobrar
+            const { id, ...orderData } = order;
+            await addDoc(collection(db, "restaurants", restaurantId, "orders"), {
+                ...orderData,
+                state: "porCobrar",
+            });
+            // Eliminar de orderssuccess
+            await deleteDoc(doc(db, "restaurants", restaurantId, "orderssuccess", order.id));
+        } catch (err) {
+            console.error("Error reabriendo la orden:", err);
+            alert("Error al reabrir la orden.");
+        }
+    };
+
+    const handleDeleteBilled = async (order: Order) => {
+        if (!restaurantId || !order.id) return;
+        if (!window.confirm(`¿Eliminar definitivamente la orden "${order.name}"? Esta acción no se puede deshacer.`)) return;
+        try {
+            await deleteDoc(doc(db, "restaurants", restaurantId, "orderssuccess", order.id));
+        } catch (err) {
+            console.error("Error eliminando la orden facturada:", err);
+            alert("Error al eliminar la orden.");
         }
     };
 
@@ -179,6 +252,187 @@ export default function BillingPage() {
                 order={orderToCheckout}
                 onClose={() => setOrderToCheckout(null)}
                 onComplete={confirmCheckout}
+            />
+
+            {/* ─────────────────────────────── HISTORIAL DEL DÍA ─────────────────────────────── */}
+            <Box mt={6}>
+                <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
+                    <History sx={{ color: "text.secondary" }} />
+                    <Box>
+                        <Typography variant="h5" fontWeight={900} sx={{ letterSpacing: "-0.02em" }}>
+                            📋 Historial del Día
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Órdenes ya facturadas hoy.
+                            {isAdmin && " Como admin puedes editarlas, reabrirlas o eliminarlas."}
+                        </Typography>
+                    </Box>
+                    <Chip
+                        label={`${todayBilled.length} orden${todayBilled.length !== 1 ? "es" : ""}`}
+                        color="success"
+                        size="small"
+                        sx={{ fontWeight: 800, ml: "auto !important" }}
+                    />
+                </Stack>
+
+                {todayBilled.length === 0 ? (
+                    <Box
+                        sx={{
+                            textAlign: "center",
+                            py: 8,
+                            bgcolor: "#fff",
+                            borderRadius: 4,
+                            border: "2px dashed #e2e8f0",
+                        }}
+                    >
+                        <History sx={{ fontSize: 56, color: "#cbd5e1", mb: 2 }} />
+                        <Typography variant="h6" color="text.secondary" fontWeight={700}>
+                            Sin órdenes facturadas todavía
+                        </Typography>
+                        <Typography variant="body2" color="text.disabled">
+                            Las órdenes cobradas hoy aparecerán aquí.
+                        </Typography>
+                    </Box>
+                ) : (
+                    <Paper elevation={0} sx={{ borderRadius: 4, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+                        <TableContainer>
+                            <Table>
+                                <TableHead sx={{ bgcolor: "#f8fafc" }}>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 800, fontSize: "0.78rem", color: "text.secondary", letterSpacing: 0.5 }}>ORDEN</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, fontSize: "0.78rem", color: "text.secondary", letterSpacing: 0.5 }}>HORA</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, fontSize: "0.78rem", color: "text.secondary", letterSpacing: 0.5 }}>PRODUCTOS</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, fontSize: "0.78rem", color: "text.secondary", letterSpacing: 0.5 }}>MÉTODO</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 800, fontSize: "0.78rem", color: "text.secondary", letterSpacing: 0.5 }}>TOTAL</TableCell>
+                                        {isAdmin && <TableCell align="center" sx={{ fontWeight: 800, fontSize: "0.78rem", color: "text.secondary", letterSpacing: 0.5 }}>ACCIONES</TableCell>}
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {todayBilled.map((order) => {
+                                        const rawDate = (order as any).dateSuccess || (order as any).date;
+                                        let dateObj: Date;
+                                        if (rawDate?.toDate) dateObj = rawDate.toDate();
+                                        else if (rawDate instanceof Date) dateObj = rawDate;
+                                        else dateObj = new Date(rawDate);
+
+                                        return (
+                                            <TableRow
+                                                key={order.id}
+                                                sx={{
+                                                    "&:hover": { bgcolor: "#f8fafc" },
+                                                    transition: "background 0.15s",
+                                                }}
+                                            >
+                                                <TableCell>
+                                                    <Typography variant="body2" fontWeight={800}>
+                                                        {order.name}
+                                                    </Typography>
+                                                    {order.notes && (
+                                                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                                                            {order.notes}
+                                                        </Typography>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                                                        {dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Stack spacing={0.2}>
+                                                        {order.products.slice(0, 3).map((p, i) => (
+                                                            <Typography key={i} variant="caption" color="text.secondary">
+                                                                {p.quantity}× {p.productName}
+                                                            </Typography>
+                                                        ))}
+                                                        {order.products.length > 3 && (
+                                                            <Typography variant="caption" color="text.disabled">
+                                                                +{order.products.length - 3} más
+                                                            </Typography>
+                                                        )}
+                                                    </Stack>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={order.paymentMethod?.toUpperCase()}
+                                                        size="small"
+                                                        variant="outlined"
+                                                        sx={{ fontWeight: 700, fontSize: "0.68rem" }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    <Typography variant="body1" fontWeight={900} color="success.main">
+                                                        ${Number(order.total || 0).toLocaleString()}
+                                                    </Typography>
+                                                </TableCell>
+                                                {isAdmin && (
+                                                    <TableCell align="center">
+                                                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                                                            <MuiTooltip title="Editar" arrow>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    color="primary"
+                                                                    onClick={() => { setOrderToEdit(order); setEditOpen(true); }}
+                                                                    sx={{ border: "1px solid", borderColor: "primary.light", borderRadius: 1.5 }}
+                                                                >
+                                                                    <Edit fontSize="small" />
+                                                                </IconButton>
+                                                            </MuiTooltip>
+                                                            <MuiTooltip title="Reabrir para re-facturar" arrow>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    color="warning"
+                                                                    onClick={() => handleReopenOrder(order)}
+                                                                    sx={{ border: "1px solid", borderColor: "warning.light", borderRadius: 1.5 }}
+                                                                >
+                                                                    <Replay fontSize="small" />
+                                                                </IconButton>
+                                                            </MuiTooltip>
+                                                            <MuiTooltip title="Eliminar definitivamente" arrow>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    color="error"
+                                                                    onClick={() => handleDeleteBilled(order)}
+                                                                    sx={{ border: "1px solid", borderColor: "error.light", borderRadius: 1.5 }}
+                                                                >
+                                                                    <DeleteOutline fontSize="small" />
+                                                                </IconButton>
+                                                            </MuiTooltip>
+                                                        </Stack>
+                                                    </TableCell>
+                                                )}
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+
+                        {/* Totales del día */}
+                        <Box sx={{ p: 2.5, bgcolor: "#f0fdf4", borderTop: "1px solid #d1fae5" }}>
+                            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="flex-end" spacing={3}>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <Typography variant="body2" color="text.secondary" fontWeight={600}>Órdenes:</Typography>
+                                    <Typography variant="body2" fontWeight={800}>{todayBilled.length}</Typography>
+                                </Stack>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <Typography variant="body2" color="text.secondary" fontWeight={600}>Total del día:</Typography>
+                                    <Typography variant="h6" fontWeight={900} color="success.dark">
+                                        ${todayBilled.reduce((s, o) => s + Number(o.total || 0), 0).toLocaleString()}
+                                    </Typography>
+                                </Stack>
+                            </Stack>
+                        </Box>
+                    </Paper>
+                )}
+            </Box>
+
+            {/* Diálogo de edición (solo admin) */}
+            <EditBilledOrderDialog
+                open={editOpen}
+                order={orderToEdit}
+                onClose={() => { setEditOpen(false); setOrderToEdit(null); }}
+                onSaved={() => setRefreshKey(k => k + 1)}
             />
         </Box>
     );
