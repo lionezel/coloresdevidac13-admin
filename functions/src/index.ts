@@ -10,6 +10,7 @@
 import { setGlobalOptions } from "firebase-functions";
 export { createUser } from "./createUser";
 export { makeAdmin } from "./makeAdmin";
+export { updateUserAuth } from "./updateUser";
 
 // Start writing functions
 // https://firebase.google.com/docs/functions/typescript

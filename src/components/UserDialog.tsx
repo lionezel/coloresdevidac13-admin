@@ -14,7 +14,10 @@ import {
     FormGroup,
     Grid,
     Box,
+    IconButton,
+    InputAdornment,
 } from "@mui/material";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { useEffect, useState } from "react";
 import { Users, UserPermissions } from "../interfaces/Users";
 
@@ -48,6 +51,17 @@ const DEFAULT_PERMISSIONS: UserPermissions = {
 
 export default function UserDialog({ open, onClose, initial, onSubmit }: Props) {
     const [values, setValues] = useState<Partial<Users>>({});
+    const [showPassword, setShowPassword] = useState(false);
+    const [touched, setTouched] = useState<{ [key: string]: boolean }>({});
+
+    // Validations
+    const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email || "");
+    const password = (values as any).password || "";
+    const isPasswordValid = initial?.uid 
+        ? (password === "" || password.length >= 6) // Optional but min 6 if provided
+        : password.length >= 6; // Mandatory min 6 for new users
+
+    const canSave = values.name && isEmailValid && isPasswordValid;
 
     useEffect(() => {
         if (open) {
@@ -67,6 +81,7 @@ export default function UserDialog({ open, onClose, initial, onSubmit }: Props) 
 
     const handleChange = (key: keyof Users, value: any) => {
         setValues((prev) => ({ ...prev, [key]: value }));
+        setTouched((prev) => ({ ...prev, [key]: true }));
     };
 
     const handlePermissionChange = (key: keyof UserPermissions, value: any) => {
@@ -114,21 +129,40 @@ export default function UserDialog({ open, onClose, initial, onSubmit }: Props) 
                                 value={values.email || ""}
                                 onChange={(e) => handleChange("email", e.target.value)}
                                 fullWidth
+                                error={touched.email && !isEmailValid}
+                                helperText={touched.email && !isEmailValid ? "Correo electrónico inválido" : ""}
                             />
                         </Grid>
                         
-                        {!initial?.uid && (
-                            <Grid size={{ xs: 12 }}>
-                                <TextField
-                                    label="Contraseña"
-                                    type="password"
-                                    value={(values as any).password || ""}
-                                    onChange={(e) => handleChange("password" as any, e.target.value)}
-                                    fullWidth
-                                    helperText="Mínimo 6 caracteres"
-                                />
-                            </Grid>
-                        )}
+                        <Grid size={{ xs: 12 }}>
+                            <TextField
+                                label={initial?.uid ? "Nueva contraseña (opcional)" : "Contraseña"}
+                                type={showPassword ? "text" : "password"}
+                                value={(values as any).password || ""}
+                                onChange={(e) => handleChange("password" as any, e.target.value)}
+                                fullWidth
+                                error={touched.password && !isPasswordValid}
+                                helperText={
+                                    touched.password && !isPasswordValid 
+                                        ? "La contraseña debe tener al menos 6 caracteres" 
+                                        : "Mínimo 6 caracteres"
+                                }
+                                slotProps={{
+                                    input: {
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    onClick={() => setShowPassword(!showPassword)}
+                                                    edge="end"
+                                                >
+                                                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ),
+                                    },
+                                }}
+                            />
+                        </Grid>
 
                         <Grid size={{ xs: 12, md: 6 }}>
                             <TextField
@@ -215,7 +249,7 @@ export default function UserDialog({ open, onClose, initial, onSubmit }: Props) 
                 <Button
                     variant="contained"
                     onClick={handleSave}
-                    disabled={!values.email}
+                    disabled={!canSave}
                 >
                     Guardar
                 </Button>

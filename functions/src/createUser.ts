@@ -14,9 +14,18 @@ export const createUser = onCall(async (request) => {
     );
   }
 
-  // 🔒 Verificar admin
-  const caller = await admin.auth().getUser(auth.uid);
-  if (!caller.customClaims?.admin) {
+  // 🔒 Verificar admin (usando la lógica del proyecto: UID hardcodeado o Firestore)
+  const HARDCODED_ADMIN_UID = "THtaTpKF7mOcSS5VbJtGtkZu9z82";
+  
+  let isCallerAdmin = auth.uid === HARDCODED_ADMIN_UID;
+  
+  if (!isCallerAdmin) {
+    const userDoc = await admin.firestore().collection("users").doc(auth.uid).get();
+    const userData = userDoc.data();
+    isCallerAdmin = userData?.isAdmin === true || userData?.role === "admin";
+  }
+
+  if (!isCallerAdmin) {
     throw new HttpsError(
       "permission-denied",
       "No eres administrador"

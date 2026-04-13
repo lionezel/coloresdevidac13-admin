@@ -19,7 +19,8 @@ import { useParams } from "react-router-dom";
 import { Timestamp, doc, updateDoc, setDoc } from "firebase/firestore";
 import { Users } from "../interfaces/Users";
 import { createAuthUser } from "../firebase/user";
-import { db } from "../firebase/config";
+import { db, functions } from "../firebase/config";
+import { httpsCallable } from "firebase/functions";
 
 export default function UsersPage() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -216,10 +217,25 @@ export default function UsersPage() {
           try {
             const id = values.uid || (values as any).id;
             if (id) {
-                // Actualizar usuario existente en ambos lugares
-                await updateItem(id, values);
+                const newPassword = (values as any).password;
+                
+                // Sincronizar con Firebase Auth si el correo cambió o hay nueva contraseña
+                if (current?.email !== values.email || (newPassword && newPassword.length >= 6)) {
+                    const updateAuth = httpsCallable(functions, "updateUserAuth");
+                    await updateAuth({
+                        uid: id,
+                        email: values.email,
+                        password: newPassword && newPassword.length >= 6 ? newPassword : undefined
+                    });
+                }
+
+                // Limpiar contraseña antes de guardar en Firestore
+                const { password: _, ...firestoreData } = values as any;
+
+                // Actualizar usuario existente en ambos lugares (Firestore)
+                await updateItem(id, firestoreData as any);
                 const globalUserRef = doc(db, "users", id);
-                await updateDoc(globalUserRef, values as any);
+                await updateDoc(globalUserRef, firestoreData as any);
             } else {
                 // Crear nuevo usuario en Firebase Auth primero
                 const password = (values as any).password;
