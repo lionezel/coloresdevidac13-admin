@@ -47,6 +47,7 @@ import { Order } from "../interfaces/Order";
 import CheckoutDialog from "../components/CheckoutDialog";
 import EditBilledOrderDialog from "../components/EditBilledOrderDialog";
 import { useAuth } from "../hooks/useAuth";
+import { removeUndefined } from "../global/utils";
 
 export default function BillingPage() {
     const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -69,6 +70,16 @@ export default function BillingPage() {
     const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
     const [editOpen, setEditOpen] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+
+    const toggleExpand = (orderId: string) => {
+        setExpandedOrders(prev => {
+            const next = new Set(prev);
+            if (next.has(orderId)) next.delete(orderId);
+            else next.add(orderId);
+            return next;
+        });
+    };
 
     // Órdenes facturadas del día actual
     const todayBilled = useMemo(() => {
@@ -118,7 +129,7 @@ export default function BillingPage() {
             // -- DESCUENTO DE STOCK --
             const todayStr = new Date().toLocaleDateString();
             for (const p of orderToComplete.products) {
-                if (!p.productId || !p.variantId) continue;
+                if (!p.productId || !p.variantId || p.productId === "__standalone__") continue;
                 const docRef = doc(db, "restaurants", restaurantId!, "products", p.productId);
                 const snap = await getDoc(docRef);
                 if (snap.exists()) {
@@ -146,11 +157,12 @@ export default function BillingPage() {
                 ...orderToComplete,
                 paymentMethod: finalPaymentMethod,
                 state: "completada",
+                dateSuccess: new Date(),
             };
-            // Firestore rechaza campos con valor `undefined`; los eliminamos.
-            const cleanOrder = Object.fromEntries(
-                Object.entries(rawOrder).filter(([, v]) => v !== undefined)
-            ) as Order;
+            
+            // Limpiamos recursivamente el objeto para que Firestore no rechace valores `undefined`
+            const cleanOrder = removeUndefined(rawOrder) as Order;
+            
             await createSuccess(cleanOrder);
             if (orderToComplete.id) {
                 await deleteItem(orderToComplete.id);
@@ -338,17 +350,31 @@ export default function BillingPage() {
                                                         {dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true })}
                                                     </Typography>
                                                 </TableCell>
-                                                <TableCell>
+                                                 <TableCell>
                                                     <Stack spacing={0.2}>
-                                                        {order.products.slice(0, 3).map((p, i) => (
+                                                        {(expandedOrders.has(order.id!) ? order.products : order.products.slice(0, 3)).map((p, i) => (
                                                             <Typography key={i} variant="caption" color="text.secondary">
                                                                 {p.quantity}× {p.productName}
                                                             </Typography>
                                                         ))}
                                                         {order.products.length > 3 && (
-                                                            <Typography variant="caption" color="text.disabled">
-                                                                +{order.products.length - 3} más
-                                                            </Typography>
+                                                            <Button
+                                                                size="small"
+                                                                variant="text"
+                                                                onClick={() => toggleExpand(order.id!)}
+                                                                sx={{
+                                                                    p: 0,
+                                                                    minWidth: 0,
+                                                                    fontSize: "0.65rem",
+                                                                    fontWeight: 800,
+                                                                    color: expandedOrders.has(order.id!) ? "error.main" : "primary.main",
+                                                                    textTransform: "none",
+                                                                    justifyContent: "flex-start",
+                                                                    "&:hover": { bgcolor: "transparent", opacity: 0.8 }
+                                                                }}
+                                                            >
+                                                                {expandedOrders.has(order.id!) ? "Ver menos" : `+${order.products.length - 3} más`}
+                                                            </Button>
                                                         )}
                                                     </Stack>
                                                 </TableCell>

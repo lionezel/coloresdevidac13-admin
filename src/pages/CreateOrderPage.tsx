@@ -440,6 +440,7 @@ export default function CreateOrderPage() {
       quantity: sa.quantity,
       image: "",
       total: sa.price * sa.quantity,
+      additions: [], // Asegurar que sea un arreglo vacío y no undefined
       completed: false,
     }));
 
