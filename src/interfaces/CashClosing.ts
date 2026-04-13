@@ -39,8 +39,17 @@ export interface CashClosing {
     expenses?: {
         description: string;
         amount: number;
+        createdByUid?: string;
+        createdByName?: string;
     }[];
     totalExpenses?: number;
+    incomes?: {
+        description: string;
+        amount: number;
+        createdByUid?: string;
+        createdByName?: string;
+    }[];
+    totalIncomes?: number;
     notes?: string;
     createdAt: Timestamp;
 }

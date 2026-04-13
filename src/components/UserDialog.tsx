@@ -31,6 +31,7 @@ const AVAILABLE_PAGES = [
     { id: "categories", label: "Categorías" },
     { id: "orders", label: "Pedidos" },
     { id: "billing", label: "Caja / Facturación" },
+    { id: "cash-closing", label: "Cierre de Caja" },
     { id: "additions", label: "Adiciones" },
     { id: "discounts", label: "Descuentos" },
     { id: "carousel", label: "Carousel" },

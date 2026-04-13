@@ -47,6 +47,7 @@ import { useAuth } from "../hooks/useAuth";
 import { formatCOP } from "../components/format";
 import { Order } from "../interfaces/Order";
 import { CashClosing } from "../interfaces/CashClosing";
+import { CashTransaction } from "../interfaces/CashTransaction";
 import { Timestamp } from "firebase/firestore";
 
 /* =========================
@@ -80,9 +81,14 @@ export default function CashClosingPage() {
     const { restaurantId } = useParams<{ restaurantId: string }>();
     const { userDoc } = useAuth();
 
+    // Mesero = rol "mesero" O rol sin derechos de admin/cajero con permiso de cierre de caja
+    const isAdmin = userDoc?.isAdmin === true || userDoc?.role === "admin";
+    const isWaitress = !isAdmin && (userDoc?.role === "mesero" || userDoc?.role === "mesera");
+
     // Colecciones
     const { data: orders = [] } = useCollection<Order>(restaurantId!, "orderssuccess");
     const { data: closings = [], createItem: saveClosing } = useCollection<CashClosing>(restaurantId!, "cashclosings");
+    const { data: transactions = [], createItem: createTransaction, deleteItem: deleteTransaction } = useCollection<CashTransaction>(restaurantId!, "cashtransactions");
 
     // Estados locales
     const [openingBalance, setOpeningBalance] = useState<number>(0);
@@ -106,16 +112,24 @@ export default function CashClosingPage() {
         coins50: 0, coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
         bills2000: 0, bills5000: 0, bills10000: 0, bills20000: 0, bills50000: 0, bills100000: 0
     });
-    const [expenses, setExpenses] = useState<{ description: string; amount: number }[]>([]);
     const [newExpense, setNewExpense] = useState({ description: "", amount: 0 });
+    const [newIncome, setNewIncome] = useState({ description: "", amount: 0 });
+
+    const todaysTransactions = useMemo(() => {
+        return transactions.filter(t => t.dateStr === targetDateStr);
+    }, [transactions, targetDateStr]);
+
+    const expenses = useMemo(() => todaysTransactions.filter(t => t.type === "expense"), [todaysTransactions]);
+    const incomes = useMemo(() => todaysTransactions.filter(t => t.type === "income"), [todaysTransactions]);
+
+    const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + e.amount, 0), [expenses]);
+    const totalIncomes = useMemo(() => incomes.reduce((sum, e) => sum + e.amount, 0), [incomes]);
 
     const totalFromBreakdown = useMemo(() => {
         return (denominations.coins50 * 50) + (denominations.coins100 * 100) + (denominations.coins200 * 200) + (denominations.coins500 * 500) + (denominations.coins1000 * 1000) +
             (denominations.bills2000 * 2000) + (denominations.bills5000 * 5000) + (denominations.bills10000 * 10000) +
             (denominations.bills20000 * 20000) + (denominations.bills50000 * 50000) + (denominations.bills100000 * 100000);
     }, [denominations]);
-
-    const totalExpenses = useMemo(() => expenses.reduce((sum, e) => sum + e.amount, 0), [expenses]);
 
     // Filtrar órdenes de la fecha seleccionada
     const todayOrders = useMemo(() => {
@@ -186,8 +200,8 @@ export default function CashClosingPage() {
     }, [todayOrders]);
 
     const expectedCash = useMemo(() =>
-        summary.efectivo + Number(openingBalance) - totalExpenses,
-        [summary.efectivo, openingBalance, totalExpenses]);
+        summary.efectivo + Number(openingBalance) - totalExpenses + totalIncomes,
+        [summary.efectivo, openingBalance, totalExpenses, totalIncomes]);
 
     // --- MÉTRICAS DE NEGOCIO (Últimos 30 días) ---
     const businessMetrics = useMemo(() => {
@@ -243,8 +257,10 @@ export default function CashClosingPage() {
                 totalSales: summary.totalSales,
                 totalGuiaDiscount: summary.totalGuiaDiscount,
                 denominations,
-                expenses,
+                expenses: expenses.map(e => ({ description: e.description, amount: e.amount, createdByUid: e.createdBy.uid, createdByName: e.createdBy.name })),
                 totalExpenses,
+                incomes: incomes.map(e => ({ description: e.description, amount: e.amount, createdByUid: e.createdBy.uid, createdByName: e.createdBy.name })),
+                totalIncomes,
                 notes,
                 createdAt: Timestamp.now() as any,
             };
@@ -258,7 +274,6 @@ export default function CashClosingPage() {
                 coins50: 0, coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
                 bills2000: 0, bills5000: 0, bills10000: 0, bills20000: 0, bills50000: 0, bills100000: 0
             });
-            setExpenses([]);
             setNotes("");
             setTimeout(() => setSuccessMsg(""), 5000);
         } catch (error) {
@@ -296,64 +311,68 @@ export default function CashClosingPage() {
             )}
 
             <Grid container spacing={{ xs: 1.5, md: 3 }}>
-                {/* 💳 RESUMEN DE VENTAS */}
-                <Grid size={{ xs: 12, lg: 8 }}>
-                    <Grid container spacing={2}>
-                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                            <SummaryCard title="Efectivo" value={summary.efectivo} icon={<LocalAtm />} color="#10b981" />
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                            <SummaryCard title="Tarjeta" value={summary.tarjeta} icon={<CreditCard />} color="#3b82f6" />
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                            <SummaryCard title="Transferencia" value={summary.transferencia} icon={<AccountBalance />} color="#f59e0b" />
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                            <SummaryCard title="Venta Bruta" value={summary.totalGross} icon={<AttachMoney />} color="#94a3b8" />
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                            <SummaryCard title="Descuento Guías" value={summary.totalGuiaDiscount} icon={<LocalAtm />} color="#ed6c02" />
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 6, md: 4 }}>
-                            <SummaryCard title="Venta Neta (En Caja)" value={summary.totalSales} icon={<AttachMoney />} color="#000" isTotal />
-                        </Grid>
-                    </Grid>
+                <Grid size={{ xs: 12, lg: isWaitress ? 12 : 8 }}>
+                    {!isWaitress && (
+                        <>
+                            {/* 💳 RESUMEN DE VENTAS */}
+                            <Grid container spacing={2}>
+                                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                                    <SummaryCard title="Efectivo" value={summary.efectivo} icon={<LocalAtm />} color="#10b981" />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                                    <SummaryCard title="Tarjeta" value={summary.tarjeta} icon={<CreditCard />} color="#3b82f6" />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                                    <SummaryCard title="Transferencia" value={summary.transferencia} icon={<AccountBalance />} color="#f59e0b" />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                                    <SummaryCard title="Venta Bruta" value={summary.totalGross} icon={<AttachMoney />} color="#94a3b8" />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                                    <SummaryCard title="Descuento Guías" value={summary.totalGuiaDiscount} icon={<LocalAtm />} color="#ed6c02" />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                                    <SummaryCard title="Venta Neta (En Caja)" value={summary.totalSales} icon={<AttachMoney />} color="#000" isTotal />
+                                </Grid>
+                            </Grid>
 
-                    <Card sx={{ mt: 3, borderRadius: 4, border: "1px solid #e2e8f0" }}>
-                        <CardContent>
-                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
-                                <ReceiptLong color="primary" /> Órdenes ({todayOrders.length})
-                            </Typography>
-                            <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 400, mx: { xs: -1, md: 0 }, width: { xs: 'calc(100% + 16px)', md: '100%' } }}>
-                                <Table stickyHeader>
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell padding="checkbox" />
-                                            <TableCell sx={{ fontWeight: 800 }}>Orden</TableCell>
-                                            <TableCell sx={{ fontWeight: 800 }}>Hora</TableCell>
-                                            <TableCell sx={{ fontWeight: 800 }}>Método</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 800 }}>Total</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {todayOrders.map((order) => (
-                                            <DialogOrderRow key={order.id} order={order} toDate={toDate} />
-                                        ))}
-                                        {todayOrders.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.disabled" }}>
-                                                    No hay ventas registradas hoy todavía.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        </CardContent>
-                    </Card>
+                            <Card sx={{ mt: 3, borderRadius: 4, border: "1px solid #e2e8f0" }}>
+                                <CardContent>
+                                    <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
+                                        <ReceiptLong color="primary" /> Órdenes ({todayOrders.length})
+                                    </Typography>
+                                    <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 400, mx: { xs: -1, md: 0 }, width: { xs: 'calc(100% + 16px)', md: '100%' } }}>
+                                        <Table stickyHeader>
+                                            <TableHead>
+                                                <TableRow>
+                                                    <TableCell padding="checkbox" />
+                                                    <TableCell sx={{ fontWeight: 800 }}>Orden</TableCell>
+                                                    <TableCell sx={{ fontWeight: 800 }}>Hora</TableCell>
+                                                    <TableCell sx={{ fontWeight: 800 }}>Método</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Total</TableCell>
+                                                </TableRow>
+                                            </TableHead>
+                                            <TableBody>
+                                                {todayOrders.map((order) => (
+                                                    <DialogOrderRow key={order.id} order={order} toDate={toDate} />
+                                                ))}
+                                                {todayOrders.length === 0 && (
+                                                    <TableRow>
+                                                        <TableCell colSpan={5} align="center" sx={{ py: 4, color: "text.disabled" }}>
+                                                            No hay ventas registradas hoy todavía.
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                </CardContent>
+                            </Card>
+                        </>
+                    )}
 
                     {/* 💸 EGRESOS / PAGOS */}
-                    <Card sx={{ mt: 3, borderRadius: 4, border: "1px solid #e2e8f0" }}>
+                    <Card sx={{ mt: isWaitress ? 0 : 3, borderRadius: 4, border: "1px solid #e2e8f0" }}>
                         <CardContent>
                             <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
                                 <LocalAtm color="error" /> Egresos
@@ -381,9 +400,17 @@ export default function CashClosingPage() {
                                         variant="contained"
                                         color="error"
                                         sx={{ width: { xs: "100%", sm: "auto" } }}
-                                        onClick={() => {
-                                            if (newExpense.description && newExpense.amount > 0) {
-                                                setExpenses([...expenses, newExpense]);
+                                        onClick={async () => {
+                                            if (newExpense.description && newExpense.amount > 0 && userDoc) {
+                                                await createTransaction({
+                                                    restaurantId: restaurantId!,
+                                                    type: "expense",
+                                                    amount: newExpense.amount,
+                                                    description: newExpense.description,
+                                                    dateStr: targetDateStr,
+                                                    createdBy: { uid: userDoc.uid || userDoc.id, name: userDoc.name || "Usuario", role: userDoc.role || "user" },
+                                                    createdAt: Timestamp.now()
+                                                });
                                                 setNewExpense({ description: "", amount: 0 });
                                             }
                                         }}
@@ -398,31 +425,131 @@ export default function CashClosingPage() {
                                     <TableHead>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 700 }}>Descripción</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 700 }}>Creado por</TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 700 }}>Monto</TableCell>
                                             <TableCell align="right"></TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {expenses.map((exp, idx) => (
-                                            <TableRow key={idx}>
+                                        {expenses.map((exp) => (
+                                            <TableRow key={exp.id}>
                                                 <TableCell>{exp.description}</TableCell>
+                                                <TableCell align="right">
+                                                    <Typography variant="caption" color="text.secondary">{exp.createdBy.name}</Typography>
+                                                </TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 600 }}>{formatCOP(exp.amount)}</TableCell>
                                                 <TableCell align="right">
-                                                    <IconButton size="small" color="error" onClick={() => setExpenses(expenses.filter((_, i) => i !== idx))}>
-                                                        <Box sx={{ fontSize: '1rem', fontWeight: 900 }}>×</Box>
-                                                    </IconButton>
+                                                    {(userDoc?.role === "admin" || userDoc?.uid === exp.createdBy.uid || userDoc?.id === exp.createdBy.uid) && (
+                                                        <IconButton size="small" color="error" onClick={() => deleteTransaction(exp.id!)}>
+                                                            <Box sx={{ fontSize: '1rem', fontWeight: 900 }}>×</Box>
+                                                        </IconButton>
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
                                         {expenses.length === 0 && (
                                             <TableRow>
-                                                <TableCell colSpan={3} align="center" sx={{ color: "text.disabled", py: 2 }}>No hay egresos registrados.</TableCell>
+                                                <TableCell colSpan={4} align="center" sx={{ color: "text.disabled", py: 2 }}>No hay egresos registrados.</TableCell>
                                             </TableRow>
                                         )}
                                         {expenses.length > 0 && (
                                             <TableRow sx={{ bgcolor: "#fef2f2" }}>
-                                                <TableCell sx={{ fontWeight: 800 }}>TOTAL EGRESOS</TableCell>
+                                                <TableCell colSpan={2} sx={{ fontWeight: 800 }}>TOTAL EGRESOS</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 900, color: "error.main" }}>{formatCOP(totalExpenses)}</TableCell>
+                                                <TableCell></TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </CardContent>
+                    </Card>
+
+                    {/* 💰 INGRESOS EXTRAS */}
+                    <Card sx={{ mt: 3, borderRadius: 4, border: "1px solid #e2e8f0" }}>
+                        <CardContent>
+                            <Typography variant="h6" fontWeight={800} mb={3} sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: { xs: "1rem", md: "1.25rem" } }}>
+                                <AttachMoney color="success" /> Ingresos (Adicionales)
+                            </Typography>
+
+                            <Stack spacing={2} mb={3}>
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                                    <TextField
+                                        label="Descripción"
+                                        size="small"
+                                        fullWidth
+                                        value={newIncome.description}
+                                        onChange={(e) => setNewIncome({ ...newIncome, description: e.target.value })}
+                                        placeholder="Ej: Base adicional, venta aislada, etc."
+                                    />
+                                    <TextField
+                                        label="Monto"
+                                        type="number"
+                                        size="small"
+                                        sx={{ width: { xs: "100%", sm: 150 } }}
+                                        value={newIncome.amount === 0 ? "" : newIncome.amount}
+                                        onChange={(e) => setNewIncome({ ...newIncome, amount: Number(e.target.value) })}
+                                    />
+                                    <Button
+                                        variant="contained"
+                                        color="success"
+                                        sx={{ width: { xs: "100%", sm: "auto" } }}
+                                        onClick={async () => {
+                                            if (newIncome.description && newIncome.amount > 0 && userDoc) {
+                                                await createTransaction({
+                                                    restaurantId: restaurantId!,
+                                                    type: "income",
+                                                    amount: newIncome.amount,
+                                                    description: newIncome.description,
+                                                    dateStr: targetDateStr,
+                                                    createdBy: { uid: userDoc.uid || userDoc.id, name: userDoc.name || "Usuario", role: userDoc.role || "user" },
+                                                    createdAt: Timestamp.now()
+                                                });
+                                                setNewIncome({ description: "", amount: 0 });
+                                            }
+                                        }}
+                                    >
+                                        Agregar
+                                    </Button>
+                                </Stack>
+                            </Stack>
+
+                            <TableContainer>
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell sx={{ fontWeight: 700 }}>Descripción</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 700 }}>Creado por</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 700 }}>Monto</TableCell>
+                                            <TableCell align="right"></TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {incomes.map((inc) => (
+                                            <TableRow key={inc.id}>
+                                                <TableCell>{inc.description}</TableCell>
+                                                <TableCell align="right">
+                                                    <Typography variant="caption" color="text.secondary">{inc.createdBy.name}</Typography>
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 600 }}>{formatCOP(inc.amount)}</TableCell>
+                                                <TableCell align="right">
+                                                    {(userDoc?.role === "admin" || userDoc?.uid === inc.createdBy.uid || userDoc?.id === inc.createdBy.uid) && (
+                                                        <IconButton size="small" color="error" onClick={() => deleteTransaction(inc.id!)}>
+                                                            <Box sx={{ fontSize: '1rem', fontWeight: 900 }}>×</Box>
+                                                        </IconButton>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {incomes.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={4} align="center" sx={{ color: "text.disabled", py: 2 }}>No hay ingresos registrados.</TableCell>
+                                            </TableRow>
+                                        )}
+                                        {incomes.length > 0 && (
+                                            <TableRow sx={{ bgcolor: "#f0fdf4" }}>
+                                                <TableCell colSpan={2} sx={{ fontWeight: 800 }}>TOTAL INGRESOS</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 900, color: "success.main" }}>{formatCOP(totalIncomes)}</TableCell>
                                                 <TableCell></TableCell>
                                             </TableRow>
                                         )}
@@ -433,6 +560,8 @@ export default function CashClosingPage() {
                     </Card>
                 </Grid>
 
+                {!isWaitress && (
+                <Fragment>
                 {/* 📝 FORMULARIO DE CIERRE */}
                 <Grid size={{ xs: 12, lg: 4 }}>
                     <Card sx={{ borderRadius: 4, border: "1px solid #e2e8f0", mb: 3 }}>
@@ -565,7 +694,11 @@ export default function CashClosingPage() {
                                         <Divider sx={{ my: 0.5 }} />
                                         <Stack direction="row" justifyContent="space-between" spacing={1}>
                                             <Typography variant="caption" color="error.main" fontWeight={600}>(-) Egresos:</Typography>
-                                            <Typography variant="caption" fontWeight={700} color="error.main">{formatCOP(totalExpenses)}</Typography>
+                                            <Typography variant="caption" fontWeight={700} color="error.main">- {formatCOP(totalExpenses)}</Typography>
+                                        </Stack>
+                                        <Stack direction="row" justifyContent="space-between" spacing={1}>
+                                            <Typography variant="caption" color="success.main" fontWeight={600}>(+) Ingresos Extra:</Typography>
+                                            <Typography variant="caption" fontWeight={700} color="success.main">+ {formatCOP(totalIncomes)}</Typography>
                                         </Stack>
                                         <Divider sx={{ my: 0.5 }} />
                                         <Stack direction="row" justifyContent="space-between" spacing={1}>
@@ -795,6 +928,8 @@ export default function CashClosingPage() {
                         </CardContent>
                     </Card>
                 </Grid>
+                </Fragment>
+                )}
             </Grid>
 
             {/* DIÁLOGO DETALLES DE CIERRE */}
