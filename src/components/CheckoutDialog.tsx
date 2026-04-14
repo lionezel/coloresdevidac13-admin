@@ -67,23 +67,24 @@ export default function CheckoutDialog({
         "credit_customers"
     );
 
+    const [localProducts, setLocalProducts] = useState<any[]>([]);
+
     const selectedCustomer = useMemo(() =>
         creditCustomers.find(c => c.id === selectedCustomerId),
         [creditCustomers, selectedCustomerId]);
 
     // Calculate total whenever an order is active
     const subTotal = useMemo(() => {
-        if (!order) return 0;
-        return order.products.reduce(
+        return localProducts.reduce(
             (acc, p) => acc + Number(p.total ?? Number(p.price) * Number(p.quantity)),
             0
         );
-    }, [order]);
+    }, [localProducts]);
 
     const guiaDiscount = useMemo(() => {
-        if (!isGuiaPlan || !order) return 0;
+        if (!isGuiaPlan || !localProducts.length) return 0;
         let foodCount = 0;
-        order.products.forEach(p => {
+        localProducts.forEach(p => {
             const productDef = allProducts.find(prod => prod.id === p.productId);
             const cat = productDef?.category?.toLowerCase() || "";
             const name = p.productName.toLowerCase();
@@ -98,7 +99,7 @@ export default function CheckoutDialog({
             }
         });
         return foodCount * 5000;
-    }, [isGuiaPlan, order, allProducts]);
+    }, [isGuiaPlan, localProducts, allProducts]);
 
     const discountAmount = useMemo(() => {
         let baseDiscount = 0;
@@ -106,7 +107,7 @@ export default function CheckoutDialog({
             let targetAmount = subTotal;
             if (discountType === "producto") {
                 if (discountProductIdx !== "") {
-                    const p = order?.products[Number(discountProductIdx)];
+                    const p = localProducts[Number(discountProductIdx)];
                     if (p) targetAmount = Number(p.total ?? (p.price * p.quantity));
                 }
             }
@@ -119,7 +120,7 @@ export default function CheckoutDialog({
         }
 
         return baseDiscount + guiaDiscount;
-    }, [discountType, discountMode, discountValue, discountProductIdx, subTotal, order, guiaDiscount]);
+    }, [discountType, discountMode, discountValue, discountProductIdx, subTotal, localProducts, guiaDiscount]);
 
     const tipAmount = useMemo(() => {
         const baseForTip = subTotal - discountAmount;
@@ -129,10 +130,13 @@ export default function CheckoutDialog({
 
     const totalGeneral = subTotal - discountAmount + tipAmount;
 
-    // Sync default payment method when order changes
     React.useEffect(() => {
-        if (order && order.paymentMethod) {
+        if (order) {
             setPaymentMethod(order.paymentMethod.toLowerCase());
+            // Deep copy objects to avoid mutation
+            setLocalProducts(order.products.map(p => ({ ...p })));
+        } else {
+            setLocalProducts([]);
         }
         setTipMode("percentage");
         setTipPercentage(0);
@@ -148,6 +152,17 @@ export default function CheckoutDialog({
         setIsGuiaPlan(false);
         setSelectedCustomerId("");
     }, [order]);
+
+    const handlePriceChange = (idx: number, newPrice: number) => {
+        setLocalProducts(prev => {
+            const next = [...prev];
+            const item = { ...next[idx] };
+            item.price = newPrice;
+            item.total = newPrice * item.quantity;
+            next[idx] = item;
+            return next;
+        });
+    };
 
     // Calculate change
     const changeToGive = useMemo(() => {
@@ -199,13 +214,14 @@ export default function CheckoutDialog({
 
             const payload: any = {
                 ...order,
+                products: localProducts,
                 subTotal,
                 discountAmount: discountAmount > 0 ? discountAmount : null,
                 discountType: discountAmount > 0 ? (discountType as "total" | "producto") : null,
                 discountMode: discountAmount > 0 ? discountMode : null,
                 discountValue: discountAmount > 0 ? Number(discountValue) : null,
                 discountProductId: discountAmount > 0 && discountType === "producto" && discountProductIdx !== ""
-                    ? order.products[Number(discountProductIdx)].productId
+                    ? localProducts[Number(discountProductIdx)].productId
                     : null,
                 isGuiaPlan,
                 guiaDiscount: guiaDiscount > 0 ? guiaDiscount : null,
@@ -403,7 +419,7 @@ export default function CheckoutDialog({
                                     fullWidth
                                     sx={{ mb: 2, bgcolor: "#fff" }}
                                 >
-                                    {order.products.map((p, idx) => (
+                                    {localProducts.map((p, idx) => (
                                         <MenuItem key={idx} value={idx}>
                                             {p.quantity}x {p.productName} (${Number(p.total ?? (p.price * p.quantity)).toLocaleString()})
                                         </MenuItem>
@@ -453,6 +469,41 @@ export default function CheckoutDialog({
                     )}
                 </Box>
 
+                {/* Ajuste de Precios */}
+                <Box mb={3}>
+                    <Typography variant="subtitle2" color="text.secondary" mb={1} fontWeight={600}>
+                        Ajuste de Precios de Productos:
+                    </Typography>
+                    <Stack spacing={1.5}>
+                        {localProducts.map((p, idx) => (
+                            <Box key={idx} sx={{ p: 1.5, bgcolor: "#f8fafc", borderRadius: 2, border: "1px solid #e2e8f0" }}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                                    <Box sx={{ flex: 1 }}>
+                                        <Typography variant="body2" fontWeight={800}>
+                                            {p.quantity}x {p.productName}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {p.variantLabel && p.variantLabel !== "Única" ? p.variantLabel : ""}
+                                        </Typography>
+                                    </Box>
+                                    <TextField
+                                        label="Precio Unit."
+                                        size="small"
+                                        type="number"
+                                        value={p.price}
+                                        onChange={(e) => handlePriceChange(idx, Number(e.target.value))}
+                                        sx={{ width: 130, bgcolor: "#fff" }}
+                                        InputProps={{
+                                            startAdornment: <Typography variant="caption" sx={{ mr: 0.5, fontWeight: 700 }}>$</Typography>,
+                                            sx: { borderRadius: 1.5, fontWeight: 800 }
+                                        }}
+                                    />
+                                </Stack>
+                            </Box>
+                        ))}
+                    </Stack>
+                </Box>
+
                 {/* Resumen de Total */}
                 <Box
                     sx={{
@@ -465,7 +516,7 @@ export default function CheckoutDialog({
                 >
                     <Stack spacing={1} mb={2}>
                         <Stack direction="row" justifyContent="space-between">
-                            <Typography color="text.secondary" variant="body2" fontWeight={600}>Subtotal ({order.products.length} productos)</Typography>
+                            <Typography color="text.secondary" variant="body2" fontWeight={600}>Subtotal ({localProducts.length} productos)</Typography>
                             <Typography fontWeight={700} variant="body2">${subTotal.toLocaleString()}</Typography>
                         </Stack>
 
@@ -701,6 +752,7 @@ export default function CheckoutDialog({
                     ref={componentRef}
                     order={{
                         ...order,
+                        products: localProducts,
                         subTotal,
                         discountAmount,
                         tipAmount,

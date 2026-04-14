@@ -158,19 +158,6 @@ export default function CashClosingPage() {
         localStorage.setItem(`closing_denoms_${restaurantId}`, JSON.stringify(denominations));
     }, [actualTransferStr, actualCardStr, notes, denominations, restaurantId]);
 
-    // Obtener caja de ayer de la DB
-    React.useEffect(() => {
-        if (closings.length > 0 && previousDayCash === 0 && withdrawnAmount === 0) {
-            const sorted = [...closings].sort((a, b) => {
-                const dA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.date || 0);
-                const dB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.date || 0);
-                return dB.getTime() - dA.getTime();
-            });
-            if (sorted.length > 0) {
-                setPreviousDayCash(sorted[0].actualCash || 0);
-            }
-        }
-    }, [closings, restaurantId]);
 
     const todaysTransactions = useMemo(() => {
         return transactions.filter(t => t.dateStr === targetDateStr);
@@ -220,6 +207,23 @@ export default function CashClosingPage() {
             }
             setNotes(existingClosingToday.notes || "");
         } else {
+            // Buscamos el cierre más reciente ANTERIOR a la fecha seleccionada
+            const priorClosings = closings
+                .filter(c => c.date < targetDateStr)
+                .sort((a, b) => b.date.localeCompare(a.date));
+
+            if (priorClosings.length > 0) {
+                setPreviousDayCash(priorClosings[0].actualCash || 0);
+            } else {
+                // Si no hay cierres previos, podrías querer mantener el último absoluto o poner 0
+                // Lo más seguro para un día nuevo es 0 o el último absoluto si closings no está vacío
+                const allSorted = [...closings].sort((a, b) => b.date.localeCompare(a.date));
+                setPreviousDayCash(allSorted.length > 0 ? allSorted[0].actualCash : 0);
+            }
+
+            setWithdrawnAmount(0);
+            setOpeningBalanceDesc("");
+
             if (restaurantId) {
                 const savedDenoms = localStorage.getItem(`closing_denoms_${restaurantId}`);
                 if (savedDenoms) { try { setDenominations(JSON.parse(savedDenoms)); } catch (e) { } }
@@ -234,7 +238,7 @@ export default function CashClosingPage() {
                 setNotes(localStorage.getItem(`closing_notes_${restaurantId}`) || "");
             }
         }
-    }, [existingClosingToday, restaurantId]);
+    }, [existingClosingToday, restaurantId, targetDateStr, closings]);
 
     const selectedClosingOrders = useMemo(() => {
         if (!selectedClosing) return [];
@@ -300,7 +304,9 @@ export default function CashClosingPage() {
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
         const recentClosings = closings.filter(c => {
-            const d = c.createdAt?.toDate ? c.createdAt.toDate() : new Date(c.date || "");
+            const dStr = c.date || (c.createdAt?.toDate ? c.createdAt.toDate().toISOString().split('T')[0] : "");
+            if (!dStr) return false;
+            const d = new Date(dStr + "T00:00:00");
             return d >= thirtyDaysAgo;
         });
 
@@ -965,6 +971,8 @@ export default function CashClosingPage() {
                                             <TableBody>
                                                 {closings
                                                     .sort((a, b) => {
+                                                        const dateComp = (b.date || "").localeCompare(a.date || "");
+                                                        if (dateComp !== 0) return dateComp;
                                                         const dA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date();
                                                         const dB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date();
                                                         return dB.getTime() - dA.getTime();
@@ -973,10 +981,10 @@ export default function CashClosingPage() {
                                                         <TableRow key={c.id} hover onClick={() => setSelectedClosing(c)} sx={{ cursor: 'pointer' }}>
                                                             <TableCell>
                                                                 <Typography variant="body2" fontWeight={700}>
-                                                                    {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : c.date}
+                                                                    {c.date || (c.createdAt?.toDate ? c.createdAt.toDate().toLocaleDateString() : "")}
                                                                 </Typography>
-                                                                <Typography variant="caption" color="text.secondary">
-                                                                    {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                                                                    Registrado: {c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : ""}
                                                                 </Typography>
                                                             </TableCell>
                                                             <TableCell>
