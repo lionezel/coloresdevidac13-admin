@@ -189,15 +189,37 @@ export default function CashClosingPage() {
         });
     }, [orders, targetDateStr]);
 
+    const normalizeDate = (val: any) => {
+        if (!val) return "";
+        if (typeof val === "string") return val.split(' ')[0];
+        try {
+            const d = toDate({ temp: val } as any);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        } catch(e) { return ""; }
+    };
+
+    const getEffectiveCash = (c: CashClosing) => {
+        if (!c) return 0;
+        return c.actualCash || ((c.totals?.efectivo || 0) + (c.openingBalance || 0));
+    };
+
     const existingClosingToday = useMemo(() => {
-        return closings.find(c => c.date === targetDateStr);
+        return closings.find(c => normalizeDate(c.date) === normalizeDate(targetDateStr));
     }, [closings, targetDateStr]);
 
     const isClosedToday = !!existingClosingToday;
 
     React.useEffect(() => {
+        console.log("DEBUG CAJA:", { 
+            target: targetDateStr, 
+            existing: !!existingClosingToday, 
+            closingsCount: closings.length, 
+            restaurantId 
+        });
         if (existingClosingToday) {
-            setPreviousDayCash(existingClosingToday.previousDayCash || 0);
+            // Fallback robusto: si no existe previousDayCash, usamos openingBalance (base con la que empezó)
+            const prevCash = existingClosingToday.previousDayCash ?? existingClosingToday.openingBalance ?? 0;
+            setPreviousDayCash(prevCash);
             setWithdrawnAmount(existingClosingToday.withdrawnAmount || 0);
             setOpeningBalanceDesc(existingClosingToday.openingBalanceDesc || "");
             setActualTransferStr(String(existingClosingToday.actualTransfer || ""));
@@ -207,18 +229,19 @@ export default function CashClosingPage() {
             }
             setNotes(existingClosingToday.notes || "");
         } else {
-            // Buscamos el cierre más reciente ANTERIOR a la fecha seleccionada
+            // Buscamos el cierre más reciente estrictamente anterior a la fecha seleccionada
             const priorClosings = closings
-                .filter(c => c.date < targetDateStr)
-                .sort((a, b) => b.date.localeCompare(a.date));
+                .filter(c => {
+                    const cShort = normalizeDate(c.date);
+                    const tShort = normalizeDate(targetDateStr);
+                    return cShort && tShort && cShort < tShort;
+                })
+                .sort((a, b) => (normalizeDate(b.date)).localeCompare(normalizeDate(a.date)));
 
             if (priorClosings.length > 0) {
-                setPreviousDayCash(priorClosings[0].actualCash || 0);
+                setPreviousDayCash(getEffectiveCash(priorClosings[0]));
             } else {
-                // Si no hay cierres previos, podrías querer mantener el último absoluto o poner 0
-                // Lo más seguro para un día nuevo es 0 o el último absoluto si closings no está vacío
-                const allSorted = [...closings].sort((a, b) => b.date.localeCompare(a.date));
-                setPreviousDayCash(allSorted.length > 0 ? allSorted[0].actualCash : 0);
+                setPreviousDayCash(0);
             }
 
             setWithdrawnAmount(0);
@@ -367,16 +390,11 @@ export default function CashClosingPage() {
 
             await saveClosing(closingData);
             setSuccessMsg("Cierre de caja guardado exitosamente.");
-            setPreviousDayCash(0);
-            setWithdrawnAmount(0);
-            setOpeningBalanceDesc("");
-            setActualTransferStr("");
-            setActualCardStr("");
-            setDenominations({
-                coins50: 0, coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
-                bills2000: 0, bills5000: 0, bills10000: 0, bills20000: 0, bills50000: 0, bills100000: 0
-            });
-            setNotes("");
+            
+            // Eliminamos los resets manuales para permitir que el useEffect transicione 
+            // los valores correctamente desde el nuevo snapshot de Firestore.
+            
+            setLoading(false);
             if (restaurantId) {
                 localStorage.removeItem(`closing_actualTransfer_${restaurantId}`);
                 localStorage.removeItem(`closing_actualCard_${restaurantId}`);
@@ -956,15 +974,17 @@ export default function CashClosingPage() {
                                     </Typography>
                                     <TableContainer sx={{ mx: { xs: -1, md: 0 }, width: { xs: 'calc(100% + 16px)', md: '100%' }, overflowX: "auto" }}>
                                         <Table>
-                                            <TableHead>
+                                             <TableHead>
                                                 <TableRow>
                                                     <TableCell sx={{ fontWeight: 800 }}>Fecha Cierre</TableCell>
                                                     <TableCell sx={{ fontWeight: 800 }}>Realizado por</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Base</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Fondo Ayer</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Retiro</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Base Hoy</TableCell>
                                                     <TableCell align="right" sx={{ fontWeight: 800 }}>Ventas Totales</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Efectivo Final</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Saldo que Queda</TableCell>
                                                     <TableCell align="right" sx={{ fontWeight: 800 }}>Diferencia</TableCell>
-                                                    <TableCell sx={{ fontWeight: 800 }}>Notas</TableCell>
+                                                    <TableCell sx={{ fontWeight: 800 }}>Motivo / Notas</TableCell>
                                                     <TableCell align="center" sx={{ fontWeight: 800 }}>Detalle</TableCell>
                                                 </TableRow>
                                             </TableHead>
@@ -995,10 +1015,12 @@ export default function CashClosingPage() {
                                                                     <Typography variant="body2" fontWeight={600}>{c.closedBy?.name}</Typography>
                                                                 </Stack>
                                                             </TableCell>
-                                                            <TableCell align="right">{formatCOP(c.openingBalance)}</TableCell>
+                                                            <TableCell align="right" sx={{ color: "text.secondary" }}>{formatCOP(c.previousDayCash || 0)}</TableCell>
+                                                            <TableCell align="right" sx={{ color: "error.main", fontWeight: 600 }}>{c.withdrawnAmount ? `- ${formatCOP(c.withdrawnAmount)}` : "—"}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCOP(c.openingBalance)}</TableCell>
                                                             <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCOP(c.totalSales)}</TableCell>
                                                             <TableCell align="right" sx={{ fontWeight: 1000, color: "primary.main" }}>
-                                                                {formatCOP(c.actualCash || (c.totals?.efectivo || 0) + (c.openingBalance || 0))}
+                                                                {formatCOP(getEffectiveCash(c))}
                                                             </TableCell>
                                                             <TableCell align="right">
                                                                 <Typography variant="body2" fontWeight={800} color={(c.difference || 0) === 0 ? "text.secondary" : (c.difference || 0) > 0 ? "success.main" : "error.main"}>
@@ -1022,7 +1044,12 @@ export default function CashClosingPage() {
                                                             </TableCell>
                                                             <TableCell>
                                                                 <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                                                    {c.notes || "—"}
+                                                                {c.openingBalanceDesc && (
+                                                                    <Typography variant="caption" color="error.dark" sx={{ fontWeight: 800, display: "block" }}>
+                                                                        Retiro: {c.openingBalanceDesc}
+                                                                    </Typography>
+                                                                )}
+                                                                    {c.notes || (c.openingBalanceDesc ? "" : "—")}
                                                                 </Typography>
                                                             </TableCell>
                                                             <TableCell>
@@ -1145,24 +1172,44 @@ export default function CashClosingPage() {
                                             <ReceiptLong fontSize="small" /> Resumen de Ventas
                                         </Typography>
                                         <Stack spacing={1.5} mt={2}>
-                                            <Stack direction="row" justifyContent="space-between">
-                                                <Typography variant="body2" color="text.secondary" fontWeight={700}>Base de Apertura</Typography>
-                                                <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.openingBalance)}</Typography>
-                                            </Stack>
-                                            <Stack direction="row" justifyContent="space-between">
+                                            <Box sx={{ p: 2, bgcolor: "#f8fafc", borderRadius: 3, border: "1px solid #e2e8f0" }}>
+                                                <Typography variant="caption" fontWeight={900} color="text.secondary" display="block" mb={1}>DESGLOSE DE APERTURA</Typography>
+                                                <Stack spacing={1}>
+                                                    <Stack direction="row" justifyContent="space-between">
+                                                        <Typography variant="caption" fontWeight={700}>Fondo de Ayer</Typography>
+                                                        <Typography variant="caption" fontWeight={800}>{formatCOP(selectedClosing.previousDayCash || 0)}</Typography>
+                                                    </Stack>
+                                                    <Stack direction="row" justifyContent="space-between">
+                                                        <Typography variant="caption" fontWeight={700} color="error.main">Retiro inicial (-)</Typography>
+                                                        <Typography variant="caption" fontWeight={800} color="error.main">{formatCOP(selectedClosing.withdrawnAmount || 0)}</Typography>
+                                                    </Stack>
+                                                    {selectedClosing.openingBalanceDesc && (
+                                                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', pl: 1, borderLeft: '2px solid #e2e8f0' }}>
+                                                            "{selectedClosing.openingBalanceDesc}"
+                                                        </Typography>
+                                                    )}
+                                                    <Divider sx={{ my: 0.5 }} />
+                                                    <Stack direction="row" justifyContent="space-between">
+                                                        <Typography variant="body2" fontWeight={800} color="success.main">Base de Operación</Typography>
+                                                        <Typography variant="body2" fontWeight={900} color="success.main">{formatCOP(selectedClosing.openingBalance)}</Typography>
+                                                    </Stack>
+                                                </Stack>
+                                            </Box>
+
+                                            <Stack direction="row" justifyContent="space-between" sx={{ px: 1 }}>
                                                 <Typography variant="body2" color="text.secondary" fontWeight={700}>Ventas Totales Netas</Typography>
                                                 <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.totalSales)}</Typography>
                                             </Stack>
-                                            <Stack direction="row" justifyContent="space-between">
+                                            <Stack direction="row" justifyContent="space-between" sx={{ px: 1 }}>
                                                 <Typography variant="body2" color="text.secondary" fontWeight={700}>Descuentos Guías</Typography>
                                                 <Typography variant="body2" fontWeight={800} color="error.main">{formatCOP(selectedClosing.totalGuiaDiscount || 0)}</Typography>
                                             </Stack>
-                                            <Stack direction="row" justifyContent="space-between">
+                                            <Stack direction="row" justifyContent="space-between" sx={{ px: 1 }}>
                                                 <Typography variant="body2" color="text.secondary" fontWeight={700}>Egresos Registrados</Typography>
                                                 <Typography variant="body2" fontWeight={800} color="error.main">{formatCOP(selectedClosing.totalExpenses || 0)}</Typography>
                                             </Stack>
                                             <Divider sx={{ my: 0.5 }} />
-                                            <Stack direction="row" justifyContent="space-between">
+                                            <Stack direction="row" justifyContent="space-between" sx={{ px: 1 }}>
                                                 <Typography variant="body1" color="primary.main" fontWeight={900}>Efectivo Teórico</Typography>
                                                 <Typography variant="body1" fontWeight={900}>
                                                     {formatCOP((selectedClosing.totals?.efectivo || 0) + (selectedClosing.openingBalance || 0) - (selectedClosing.totalExpenses || 0))}

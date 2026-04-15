@@ -7,6 +7,11 @@ export function removeUndefined(obj: any): any {
     return obj;
   }
 
+  // Preserve Dates and Firestore Timestamps
+  if (obj instanceof Date || (typeof obj.toDate === "function")) {
+    return obj;
+  }
+
   if (Array.isArray(obj)) {
     return obj.map(removeUndefined);
   }
