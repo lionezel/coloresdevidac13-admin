@@ -982,8 +982,11 @@ export default function CashClosingPage() {
                                                     <TableCell align="right" sx={{ fontWeight: 800 }}>Fondo Ayer</TableCell>
                                                     <TableCell align="right" sx={{ fontWeight: 800 }}>Retiro</TableCell>
                                                     <TableCell align="right" sx={{ fontWeight: 800 }}>Base Hoy</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Ventas Totales</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Saldo que Queda</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Efectivo</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Tarjeta</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Transf.</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Venta Neta</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Saldo Hoy</TableCell>
                                                     <TableCell align="right" sx={{ fontWeight: 800 }}>Diferencia</TableCell>
                                                     <TableCell sx={{ fontWeight: 800 }}>Motivo / Notas</TableCell>
                                                     <TableCell align="center" sx={{ fontWeight: 800 }}>Detalle</TableCell>
@@ -1019,6 +1022,9 @@ export default function CashClosingPage() {
                                                             <TableCell align="right" sx={{ color: "text.secondary" }}>{formatCOP(c.previousDayCash || 0)}</TableCell>
                                                             <TableCell align="right" sx={{ color: "error.main", fontWeight: 600 }}>{c.withdrawnAmount ? `- ${formatCOP(c.withdrawnAmount)}` : "—"}</TableCell>
                                                             <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCOP(c.openingBalance)}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 500 }}>{formatCOP(c.totals?.efectivo || 0)}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 500 }}>{formatCOP(c.totals?.tarjeta || 0)}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 500 }}>{formatCOP(c.totals?.transferencia || 0)}</TableCell>
                                                             <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCOP(c.totalSales)}</TableCell>
                                                             <TableCell align="right" sx={{ fontWeight: 1000, color: "primary.main" }}>
                                                                 {formatCOP(getEffectiveCash(c))}
@@ -1198,9 +1204,23 @@ export default function CashClosingPage() {
                                             </Box>
 
                                             <Stack direction="row" justifyContent="space-between" sx={{ px: 1 }}>
-                                                <Typography variant="body2" color="text.secondary" fontWeight={700}>Ventas Totales Netas</Typography>
-                                                <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.totalSales)}</Typography>
+                                                <Typography variant="body1" color="primary.main" fontWeight={900}>Ventas Totales Netas</Typography>
+                                                <Typography variant="body1" fontWeight={900}>{formatCOP(selectedClosing.totalSales)}</Typography>
                                             </Stack>
+                                            <Box sx={{ pl: 2, borderLeft: '2px solid #e2e8f0', mt: 1 }}>
+                                                <Stack direction="row" justifyContent="space-between">
+                                                    <Typography variant="caption" color="text.secondary" fontWeight={700}>Efectivo (Ventas)</Typography>
+                                                    <Typography variant="caption" fontWeight={800}>{formatCOP(selectedClosing.totals?.efectivo || 0)}</Typography>
+                                                </Stack>
+                                                <Stack direction="row" justifyContent="space-between">
+                                                    <Typography variant="caption" color="text.secondary" fontWeight={700}>Tarjeta</Typography>
+                                                    <Typography variant="caption" fontWeight={800}>{formatCOP(selectedClosing.totals?.tarjeta || 0)}</Typography>
+                                                </Stack>
+                                                <Stack direction="row" justifyContent="space-between">
+                                                    <Typography variant="caption" color="text.secondary" fontWeight={700}>Transferencia</Typography>
+                                                    <Typography variant="caption" fontWeight={800}>{formatCOP(selectedClosing.totals?.transferencia || 0)}</Typography>
+                                                </Stack>
+                                            </Box>
                                             <Stack direction="row" justifyContent="space-between" sx={{ px: 1 }}>
                                                 <Typography variant="body2" color="text.secondary" fontWeight={700}>Descuentos Guías</Typography>
                                                 <Typography variant="body2" fontWeight={800} color="error.main">{formatCOP(selectedClosing.totalGuiaDiscount || 0)}</Typography>

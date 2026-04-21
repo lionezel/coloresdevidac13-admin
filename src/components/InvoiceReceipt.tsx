@@ -1,5 +1,6 @@
 import React from 'react';
 import { Order } from '../interfaces/Order';
+import { groupProducts } from '../global/utils';
 
 interface InvoiceReceiptProps {
     order: Order;
@@ -73,7 +74,7 @@ export const InvoiceReceipt = React.forwardRef<HTMLDivElement, InvoiceReceiptPro
                     <span style={{ width: '40px', textAlign: 'right' }}>Cant</span>
                     <span style={{ width: '60px', textAlign: 'right' }}>Valor</span>
                 </div>
-                {order.products.map((p, idx) => (
+                {groupProducts(order.products).map((p, idx) => (
                     <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '4px', lineHeight: '1.2' }}>
                         <span style={{ flex: 1, textTransform: 'uppercase', paddingRight: '4px', wordBreak: 'break-word' }}>
                             {p.productName}

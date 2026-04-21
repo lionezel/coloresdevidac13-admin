@@ -26,6 +26,7 @@ import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import { InvoiceReceipt } from "./InvoiceReceipt";
 import PrintIcon from "@mui/icons-material/Print";
+import { groupProducts } from "../global/utils";
 
 interface CheckoutDialogProps {
     open: boolean;
@@ -134,8 +135,8 @@ export default function CheckoutDialog({
         if (order) {
             // No pre-llenamos el método de pago para obligar al usuario a seleccionarlo
             setPaymentMethod("");
-            // Deep copy objects to avoid mutation
-            setLocalProducts(order.products.map(p => ({ ...p })));
+            // Deep copy and group objects to avoid mutation and unify lines for billing
+            setLocalProducts(groupProducts(order.products).map(p => ({ ...p })));
         } else {
             setLocalProducts([]);
         }

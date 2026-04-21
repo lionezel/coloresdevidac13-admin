@@ -53,6 +53,7 @@ interface StandaloneAddition {
   name: string;
   price: number;
   quantity: number;
+  completed?: boolean;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -272,6 +273,7 @@ export default function CreateOrderPage() {
             name: p.productName,
             price: p.price,
             quantity: p.quantity,
+            completed: p.completed ?? false,
           }))
         );
         setCustomerName(order.customerName || order.name || "");
@@ -318,6 +320,7 @@ export default function CreateOrderPage() {
 
     const existingIndex = cart.findIndex((item) => {
       if (item.productId !== selectedProduct.id || item.variantId !== selectedVariant.id) return false;
+      if (item.completed) return false; // Keep separate for kitchen if already delivered
       const existingIds = (item.additions || []).map((a) => a.id).sort();
       const newIds = Array.from(selectedAdditions).sort();
       return JSON.stringify(existingIds) === JSON.stringify(newIds);
@@ -325,8 +328,10 @@ export default function CreateOrderPage() {
 
     if (existingIndex !== -1) {
       const newCart = [...cart];
-      newCart[existingIndex].quantity += quantity;
-      newCart[existingIndex].total = unitPrice * newCart[existingIndex].quantity;
+      const existingItem = newCart[existingIndex];
+      
+      existingItem.quantity += quantity;
+      existingItem.total = unitPrice * existingItem.quantity;
       setCart(newCart);
     } else {
       const newItem: OrderProduct = {
@@ -340,6 +345,7 @@ export default function CreateOrderPage() {
         total: unitPrice * quantity,
         additions: chosenAdditions.map((a) => ({ id: a.id!, name: a.name, price: a.price })),
         completed: false,
+        category: selectedProduct.category,
       };
       setCart([...cart, newItem]);
     }
@@ -386,13 +392,16 @@ export default function CreateOrderPage() {
       name: a.name,
       price: a.price,
       quantity: 1,
+      completed: false,
     }));
 
     setStandaloneAdditions((prev) => {
       const merged = [...prev];
       newItems.forEach((ni) => {
-        const idx = merged.findIndex((m) => m.additionId === ni.additionId);
-        if (idx !== -1) merged[idx].quantity += 1;
+        const idx = merged.findIndex((m) => m.additionId === ni.additionId && !m.completed);
+        if (idx !== -1) {
+          merged[idx].quantity += 1;
+        }
         else merged.push(ni);
       });
       return merged;
@@ -441,7 +450,8 @@ export default function CreateOrderPage() {
       image: "",
       total: sa.price * sa.quantity,
       additions: [], // Asegurar que sea un arreglo vacío y no undefined
-      completed: false,
+      completed: sa.completed ?? false,
+      category: "ADICIÓN",
     }));
 
     const allProducts2 = [...cart, ...saAsProducts];
@@ -579,6 +589,15 @@ export default function CreateOrderPage() {
                     <Typography variant="body2" sx={{ fontWeight: 800, color: "#1e293b" }}>
                       {item.productName}
                     </Typography>
+                    {item.completed && (
+                      <Chip 
+                        label="Entregado" 
+                        size="small" 
+                        color="success" 
+                        variant="outlined" 
+                        sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, mt: 0.5 }} 
+                      />
+                    )}
                     {item.variantLabel && item.variantLabel !== "Única" && (
                       <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600 }}>
                         {item.variantLabel}
@@ -615,7 +634,11 @@ export default function CreateOrderPage() {
                     <Typography variant="body2" sx={{ fontWeight: 900, minWidth: 20, textAlign: "center" }}>
                       {item.quantity}
                     </Typography>
-                    <IconButton size="small" onClick={() => handleUpdateCartQuantity(idx, 1)} sx={{ bgcolor: "#f1f5f9", p: 0.5 }}>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleUpdateCartQuantity(idx, 1)} 
+                      sx={{ bgcolor: "#f1f5f9", p: 0.5 }}
+                    >
                       <Add fontSize="small" />
                     </IconButton>
                   </Stack>

@@ -13,8 +13,11 @@ export interface OrderProduct {
     quantity: number;
     image: string;
     additions?: OrderAddition[];
+    category?: string;
     total?: number;
     completed?: boolean;
+    isAddition?: boolean;
+    completedQuantity?: number;
 }
 
 export type OrderStatus =

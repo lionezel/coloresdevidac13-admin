@@ -82,6 +82,36 @@ const stopDelaySound = () => {
 };
 
 /* =======================
+   🥤 Helpers de Filtrado
+ ======================= */
+const isDrinkCategory = (category?: string) => {
+  if (!category) return false;
+  const name = category.toLowerCase();
+  return (
+    name.includes("bebida") ||
+    name.includes("jugo") ||
+    name.includes("gaseosa") ||
+    name.includes("cerveza") ||
+    name.includes("licor") ||
+    name.includes("trago") ||
+    name.includes("coctel") ||
+    name.includes("cóctel") ||
+    name.includes("limonada") ||
+    name.includes("agua") ||
+    name.includes("café") ||
+    name.includes("te") ||
+    name.includes("té") ||
+    name.includes("bar") ||
+    name.includes("soda")
+  );
+};
+
+const isDrinkOrder = (order: Order) => {
+  if (!order.products || order.products.length === 0) return false;
+  return order.products.every(p => isDrinkCategory(p.category));
+};
+
+/* =======================
    🚀 Componente Principal
  ======================= */
 
@@ -191,6 +221,16 @@ export default function OrdersPage() {
 
 
   /* 📂 Filtrado y Ordenamiento */
+  const activeOrdersCount = useMemo(() => {
+    return orders.filter(o => {
+      const isBasicActive = !["completada", "cancelada"].includes(o.state) &&
+        (!["porCobrar", "listo / caja"].includes(o.state) || o.products.some(p => !p.completed));
+      if (!isBasicActive) return false;
+      if (userRole === "admin") return true;
+      return !isDrinkOrder(o);
+    }).length;
+  }, [orders, userRole]);
+
   const filteredOrders = useMemo(() => {
     const sorted = [...orders].sort((a, b) => {
       const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
@@ -199,11 +239,18 @@ export default function OrdersPage() {
     });
 
     if (tabValue === 0) {
-      // Activas muestra pendientes y aquellas en caja que aún tengan productos sin completar
-      return sorted.filter(o => 
-        !["completada", "cancelada"].includes(o.state) && 
-        (!["porCobrar", "listo / caja"].includes(o.state) || o.products.some(p => !p.completed))
-      );
+      // Activas muestra todas las pendientes para el Admin,
+      // pero filtra bebidas para otros roles (Cocina).
+      return sorted.filter(o => {
+        const isBasicActive = !["completada", "cancelada"].includes(o.state) &&
+          (!["porCobrar", "listo / caja"].includes(o.state) || o.products.some(p => !p.completed));
+
+        if (!isBasicActive) return false;
+
+        // Si es admin, ve todo. Si no, aplicamos el filtro de bebidas.
+        if (userRole === "admin") return true;
+        return !isDrinkOrder(o);
+      });
     } else {
       return sorted.filter(o => ["completada", "cancelada", "porCobrar", "listo / caja"].includes(o.state));
     }
@@ -257,7 +304,7 @@ export default function OrdersPage() {
                 "& .MuiTab-root": { minHeight: 44, zIndex: 1, textTransform: "none", fontWeight: 700, px: 3, fontSize: "0.95rem", borderRadius: 2 }
               }}
             >
-              <Tab label={`Activas (${orders.filter(o => !["completada", "cancelada"].includes(o.state) && (!["porCobrar", "listo / caja"].includes(o.state) || o.products.some(p => !p.completed))).length})`} />
+              <Tab label={`Activas (${activeOrdersCount})`} />
               <Tab label="Caja e Historial" />
             </Tabs>
           </Paper>
@@ -342,8 +389,8 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
 
     // Si la orden está en un estado activo, solo mostramos los productos pendientes (no completados)
     // Esto cumple el requisito: "que solo se vea el producto que agregaron"
-    const isActive = !["completada", "cancelada"].includes(order.state) && 
-                     (!["porCobrar", "listo / caja"].includes(order.state) || order.products.some(p => !p.completed));
+    const isActive = !["completada", "cancelada"].includes(order.state) &&
+      (!["porCobrar", "listo / caja"].includes(order.state) || order.products.some(p => !p.completed));
     const visibleProducts = isActive ? order.products.filter(p => !p.completed) : order.products;
 
     visibleProducts.forEach(p => {

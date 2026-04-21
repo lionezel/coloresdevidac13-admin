@@ -90,6 +90,7 @@ export default function AddProductsToOrderDialog({
         image: variant.image ?? "",
         total: variant.price * qty,
         completed: false,
+        category: product.category,
       });
     }
 

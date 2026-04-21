@@ -47,7 +47,7 @@ import { Order } from "../interfaces/Order";
 import CheckoutDialog from "../components/CheckoutDialog";
 import EditBilledOrderDialog from "../components/EditBilledOrderDialog";
 import { useAuth } from "../hooks/useAuth";
-import { removeUndefined } from "../global/utils";
+import { removeUndefined, groupProducts } from "../global/utils";
 
 export default function BillingPage() {
     const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -352,7 +352,7 @@ export default function BillingPage() {
                                                 </TableCell>
                                                  <TableCell>
                                                     <Stack spacing={0.2}>
-                                                        {(expandedOrders.has(order.id!) ? order.products : order.products.slice(0, 3)).map((p, i) => (
+                                                        {(expandedOrders.has(order.id!) ? groupProducts(order.products) : groupProducts(order.products).slice(0, 3)).map((p, i) => (
                                                             <Typography key={i} variant="caption" color="text.secondary">
                                                                 {p.quantity}× {p.productName}
                                                             </Typography>
@@ -608,7 +608,7 @@ function BillingCard({
                     </Typography>
 
                     <Stack spacing={2.5} mb={4}>
-                        {order.products.map((p, idx) => (
+                        {groupProducts(order.products).map((p, idx) => (
                             <Box key={`${p.productId}-${idx}`}>
                                 <Stack direction="row" spacing={2} alignItems="center">
                                     <Box sx={{ position: "relative" }}>
