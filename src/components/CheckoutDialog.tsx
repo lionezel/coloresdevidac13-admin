@@ -41,7 +41,7 @@ export default function CheckoutDialog({
     onComplete,
 }: CheckoutDialogProps) {
     const { restaurantId } = useParams<{ restaurantId: string }>();
-    const [paymentMethod, setPaymentMethod] = useState<string>("efectivo");
+    const [paymentMethod, setPaymentMethod] = useState<string>("");
     const [cashReceived, setCashReceived] = useState<number | "">("");
     const [cashCurrency, setCashCurrency] = useState<"COP" | "USD">("COP");
     const [usdExchangeRate, setUsdExchangeRate] = useState<number | "">(4200);
@@ -132,7 +132,8 @@ export default function CheckoutDialog({
 
     React.useEffect(() => {
         if (order) {
-            setPaymentMethod(order.paymentMethod.toLowerCase());
+            // No pre-llenamos el método de pago para obligar al usuario a seleccionarlo
+            setPaymentMethod("");
             // Deep copy objects to avoid mutation
             setLocalProducts(order.products.map(p => ({ ...p })));
         } else {
@@ -203,6 +204,7 @@ export default function CheckoutDialog({
     });
 
     const handleFinish = async () => {
+        if (!paymentMethod) return;
         if (isShortOnCash || isShortOnUSD) return;
         if (paymentMethod === "fiado" && !selectedCustomerId) return;
 
@@ -555,12 +557,16 @@ export default function CheckoutDialog({
                     {/* Selector de Método de Pago */}
                     <TextField
                         select
-                        label="Método de Pago Final"
+                        label="Seleccionar Método de Pago"
                         value={paymentMethod}
                         onChange={(e) => setPaymentMethod(e.target.value)}
                         fullWidth
                         variant="outlined"
+                        required
+                        error={!paymentMethod}
+                        helperText={!paymentMethod ? "Debes seleccionar un método de pago" : ""}
                     >
+                        <MenuItem value="" disabled>--- Selecciona un método ---</MenuItem>
                         <MenuItem value="efectivo">💵 Efectivo</MenuItem>
                         <MenuItem value="tarjeta">💳 Tarjeta de Crédito/Débito</MenuItem>
                         <MenuItem value="transferencia">🏦 Transferencia / Nequi</MenuItem>
@@ -731,7 +737,7 @@ export default function CheckoutDialog({
                     variant="contained"
                     size="large"
                     color="success"
-                    disabled={isShortOnCash || isShortOnUSD}
+                    disabled={!paymentMethod || isShortOnCash || isShortOnUSD}
                     onClick={handleFinish}
                     startIcon={<ReceiptLongIcon />}
                     sx={{

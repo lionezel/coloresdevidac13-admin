@@ -447,12 +447,23 @@ export default function CreateOrderPage() {
     const allProducts2 = [...cart, ...saAsProducts];
 
     if (orderId) {
+      // Keep billing state even if products were added (kitchen will see p.completed === false)
+      const originalOrder = allOrders.find(o => o.id === orderId);
+      let newState = originalOrder?.state;
+      
+      if (originalOrder && (originalOrder.state === "listo / caja" || originalOrder.state === "porCobrar")) {
+        // We no longer revert to "pendiente". 
+        // The kitchen view is now configured to show these states if there are incomplete products.
+        newState = originalOrder.state;
+      }
+
       await updateItem(orderId, {
         products: allProducts2,
         total: cartTotal,
         subTotal: cartTotal,
         customerName,
         notes,
+        state: newState,
         name: customerName || `Orden-${orderId.substring(0, 4)}`,
       });
       setSuccessMsg(true);

@@ -104,7 +104,8 @@ export default function OrdersPage() {
   const handleSendToCashier = async (order: Order) => {
     // La cocina marca el pedido como listo para cobrar y facturar.
     if (order.id) {
-      await updateItem(order.id, { state: "listo / caja" });
+      const completedProducts = order.products.map(p => ({ ...p, completed: true }));
+      await updateItem(order.id, { state: "listo / caja", products: completedProducts });
     }
   };
 
@@ -198,8 +199,11 @@ export default function OrdersPage() {
     });
 
     if (tabValue === 0) {
-      // Activas NO muestra completadas, canceladas ni "porCobrar"/"listo / caja" (usualmente cocina no las ve si ya están en caja)
-      return sorted.filter(o => !["completada", "cancelada", "porCobrar", "listo / caja"].includes(o.state));
+      // Activas muestra pendientes y aquellas en caja que aún tengan productos sin completar
+      return sorted.filter(o => 
+        !["completada", "cancelada"].includes(o.state) && 
+        (!["porCobrar", "listo / caja"].includes(o.state) || o.products.some(p => !p.completed))
+      );
     } else {
       return sorted.filter(o => ["completada", "cancelada", "porCobrar", "listo / caja"].includes(o.state));
     }
@@ -253,7 +257,7 @@ export default function OrdersPage() {
                 "& .MuiTab-root": { minHeight: 44, zIndex: 1, textTransform: "none", fontWeight: 700, px: 3, fontSize: "0.95rem", borderRadius: 2 }
               }}
             >
-              <Tab label={`Activas (${orders.filter(o => !["completada", "cancelada", "porCobrar", "listo / caja"].includes(o.state)).length})`} />
+              <Tab label={`Activas (${orders.filter(o => !["completada", "cancelada"].includes(o.state) && (!["porCobrar", "listo / caja"].includes(o.state) || o.products.some(p => !p.completed))).length})`} />
               <Tab label="Caja e Historial" />
             </Tabs>
           </Paper>
@@ -336,7 +340,13 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
     const food: typeof order.products = [];
     const drinks: typeof order.products = [];
 
-    order.products.forEach(p => {
+    // Si la orden está en un estado activo, solo mostramos los productos pendientes (no completados)
+    // Esto cumple el requisito: "que solo se vea el producto que agregaron"
+    const isActive = !["completada", "cancelada"].includes(order.state) && 
+                     (!["porCobrar", "listo / caja"].includes(order.state) || order.products.some(p => !p.completed));
+    const visibleProducts = isActive ? order.products.filter(p => !p.completed) : order.products;
+
+    visibleProducts.forEach(p => {
       const productDef = allProducts.find(prod => prod.id === p.productId);
       const cat = productDef?.category?.toLowerCase() || "";
       const name = p.productName.toLowerCase();
@@ -354,7 +364,7 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
     });
 
     return { foodItems: food, drinkItems: drinks };
-  }, [order.products, allProducts]);
+  }, [order.products, allProducts, order.state]);
 
   const renderProduct = (p: typeof order.products[0], idx: number) => (
     <Box key={`${p.productId}-${idx}`}>

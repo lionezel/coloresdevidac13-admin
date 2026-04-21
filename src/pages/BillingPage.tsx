@@ -491,6 +491,9 @@ function BillingCard({
         );
     }, [order.products]);
 
+    const pendingProducts = useMemo(() => order.products.filter(p => !p.completed), [order.products]);
+    const hasPending = pendingProducts.length > 0;
+
     return (
         <Fade in timeout={500}>
             <Card
@@ -528,13 +531,23 @@ function BillingCard({
                             </Stack>
                         </Box>
 
-                        <Chip
-                            icon={<ShoppingBag fontSize="small" />}
-                            label="Por Cobrar"
-                            color="secondary"
-                            size="small"
-                            sx={{ fontWeight: 800, borderRadius: 2 }}
-                        />
+                        <Stack direction="row" spacing={1}>
+                            <Chip
+                                icon={<ShoppingBag fontSize="small" />}
+                                label="Por Cobrar"
+                                color="secondary"
+                                size="small"
+                                sx={{ fontWeight: 800, borderRadius: 2 }}
+                            />
+                            {hasPending && (
+                                <Chip
+                                    label="PENDIENTE COCINA"
+                                    color="warning"
+                                    size="small"
+                                    sx={{ fontWeight: 900, borderRadius: 2 }}
+                                />
+                            )}
+                        </Stack>
                     </Stack>
 
                     {/* DIRECCIÓN */}
@@ -550,7 +563,7 @@ function BillingCard({
                     {/* NOTA */}
                     {order.notes && (
                         <Box
-                            mb={3}
+                            mb={hasPending ? 1 : 3}
                             p={2}
                             sx={{
                                 bgcolor: "#fffbeb",
@@ -563,6 +576,26 @@ function BillingCard({
                             </Typography>
                             <Typography variant="body2" color="#b45309" fontWeight={500} sx={{ fontStyle: 'italic' }}>
                                 "{order.notes}"
+                            </Typography>
+                        </Box>
+                    )}
+
+                    {/* MENSAJE DE PENDIENTES */}
+                    {hasPending && (
+                        <Box
+                            mb={3}
+                            p={2}
+                            sx={{
+                                bgcolor: "rgba(255, 152, 0, 0.08)",
+                                borderRadius: 2,
+                                border: "1.5px solid #ff9800",
+                            }}
+                        >
+                            <Typography variant="caption" color="warning.dark" fontWeight={1000} sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                                <AccessTime sx={{ fontSize: 16 }} /> PENDIENTE DE:
+                            </Typography>
+                            <Typography variant="body2" color="warning.dark" fontWeight={800}>
+                                {pendingProducts.map(p => `${p.quantity}x ${p.productName}`).join(", ")}
                             </Typography>
                         </Box>
                     )}
@@ -613,18 +646,25 @@ function BillingCard({
                         <Button
                             fullWidth
                             variant="contained"
-                            color="secondary"
-                            onClick={() => onCheckout(order)}
+                            color={hasPending ? "warning" : "secondary"}
+                            onClick={() => {
+                                if (hasPending) {
+                                    if (!window.confirm("⚠️ Esta orden tiene productos pendientes en cocina. ¿Deseas cobrarla de todas formas?")) {
+                                        return;
+                                    }
+                                }
+                                onCheckout(order);
+                            }}
                             startIcon={<PointOfSale />}
                             sx={{
                                 borderRadius: 2.5,
                                 py: 1.5,
                                 fontSize: "1rem",
                                 fontWeight: 800,
-                                boxShadow: "0 4px 12px rgba(156, 39, 176, 0.2)",
+                                boxShadow: hasPending ? "none" : "0 4px 12px rgba(156, 39, 176, 0.2)",
                             }}
                         >
-                            Cobrar
+                            {hasPending ? "Cobrar con Pendientes" : "Cobrar"}
                         </Button>
                         
                         <MuiTooltip title="Agregar Productos / Editar" arrow>

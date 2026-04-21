@@ -200,7 +200,8 @@ export default function CashClosingPage() {
 
     const getEffectiveCash = (c: CashClosing) => {
         if (!c) return 0;
-        return c.actualCash || ((c.totals?.efectivo || 0) + (c.openingBalance || 0));
+        const totalCounted = c.actualCash || ((c.totals?.efectivo || 0) + (c.openingBalance || 0));
+        return totalCounted - (c.withdrawnAmount || 0);
     };
 
     const existingClosingToday = useMemo(() => {
