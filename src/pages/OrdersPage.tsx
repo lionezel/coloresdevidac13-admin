@@ -226,8 +226,9 @@ export default function OrdersPage() {
       const isBasicActive = !["completada", "cancelada"].includes(o.state) &&
         (!["porCobrar", "listo / caja"].includes(o.state) || o.products.some(p => !p.completed));
       if (!isBasicActive) return false;
-      if (userRole === "admin") return true;
-      return !isDrinkOrder(o);
+      // Solo el cocinero no puede ver órdenes que son solo bebidas
+      if (userRole === "cocinero") return !isDrinkOrder(o);
+      return true;
     }).length;
   }, [orders, userRole]);
 
@@ -239,17 +240,17 @@ export default function OrdersPage() {
     });
 
     if (tabValue === 0) {
-      // Activas muestra todas las pendientes para el Admin,
-      // pero filtra bebidas para otros roles (Cocina).
+      // Activas: solo el cocinero no ve órdenes de solo bebidas.
+      // Cajero, mesero y admin ven todo.
       return sorted.filter(o => {
         const isBasicActive = !["completada", "cancelada"].includes(o.state) &&
           (!["porCobrar", "listo / caja"].includes(o.state) || o.products.some(p => !p.completed));
 
         if (!isBasicActive) return false;
 
-        // Si es admin, ve todo. Si no, aplicamos el filtro de bebidas.
-        if (userRole === "admin") return true;
-        return !isDrinkOrder(o);
+        // Solo el cocinero no ve órdenes de solo bebidas
+        if (userRole === "cocinero") return !isDrinkOrder(o);
+        return true;
       });
     } else {
       return sorted.filter(o => ["completada", "cancelada", "porCobrar", "listo / caja"].includes(o.state));
