@@ -86,23 +86,33 @@ const stopDelaySound = () => {
  ======================= */
 const isDrinkCategory = (category?: string) => {
   if (!category) return false;
-  const name = category.toLowerCase();
+  const c = category.toLowerCase();
   return (
-    name.includes("bebida") ||
-    name.includes("jugo") ||
-    name.includes("gaseosa") ||
-    name.includes("cerveza") ||
-    name.includes("licor") ||
-    name.includes("trago") ||
-    name.includes("coctel") ||
-    name.includes("cóctel") ||
-    name.includes("limonada") ||
-    name.includes("agua") ||
-    name.includes("café") ||
-    name.includes("te") ||
-    name.includes("té") ||
-    name.includes("bar") ||
-    name.includes("soda")
+    c.includes("bebida") ||
+    c.includes("jugo") ||
+    c.includes("gaseosa") ||
+    c.includes("cerveza") ||
+    c.includes("licor") ||
+    c.includes("trago") ||
+    c.includes("coctel") ||
+    c.includes("cóctel") ||
+    c.includes("limonada") ||
+    c.includes("agua") ||
+    c.includes("café") ||
+    c.includes("te") ||
+    c.includes("té") ||
+    c.includes("bar") ||
+    c.includes("soda") ||
+    c.includes("whisky") ||
+    c.includes("whiskey") ||
+    c.includes("vodka") ||
+    c.includes("ron") ||
+    c.includes("aguardiente") ||
+    c.includes("vino") ||
+    c.includes("champagne") ||
+    c.includes("tequila") ||
+    c.includes("gin") ||
+    c.includes("alco")
   );
 };
 
@@ -119,7 +129,7 @@ export default function OrdersPage() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const navigate = useNavigate();
   const { userDoc, canCreate, canDelete } = useAuth();
-  const userRole = userDoc?.role;
+  const userRole = userDoc?.role?.toLowerCase();
   const [tabValue, setTabValue] = useState(0);
   const previousOrdersCount = useRef(0);
 
@@ -221,16 +231,31 @@ export default function OrdersPage() {
 
 
   /* 📂 Filtrado y Ordenamiento */
+
+  // Verifica si TODOS los productos de una orden son bebidas (usando lookup completo)
+  // Para el cocinero: si la orden es solo bebidas, no debe aparecer.
+  const isAllDrinksOrder = (order: Order): boolean => {
+    if (!order.products || order.products.length === 0) return false;
+    return order.products.every(p => {
+      const productDef = allProducts.find(prod => prod.id === p.productId);
+      return (
+        isDrinkCategory(p.category) ||
+        isDrinkCategory(productDef?.category) ||
+        isDrinkCategory(p.productName)
+      );
+    });
+  };
+
   const activeOrdersCount = useMemo(() => {
     return orders.filter(o => {
       const isBasicActive = !["completada", "cancelada"].includes(o.state) &&
         (!["porCobrar", "listo / caja"].includes(o.state) || o.products.some(p => !p.completed));
       if (!isBasicActive) return false;
       // Solo el cocinero no puede ver órdenes que son solo bebidas
-      if (userRole === "cocinero") return !isDrinkOrder(o);
+      if (userRole === "cocinero") return !isAllDrinksOrder(o);
       return true;
     }).length;
-  }, [orders, userRole]);
+  }, [orders, userRole, allProducts]);
 
   const filteredOrders = useMemo(() => {
     const sorted = [...orders].sort((a, b) => {
@@ -240,7 +265,7 @@ export default function OrdersPage() {
     });
 
     if (tabValue === 0) {
-      // Activas: solo el cocinero no ve órdenes de solo bebidas.
+      // Activas: solo el cocinero no ve órdenes que son únicamente bebidas.
       // Cajero, mesero y admin ven todo.
       return sorted.filter(o => {
         const isBasicActive = !["completada", "cancelada"].includes(o.state) &&
@@ -248,8 +273,8 @@ export default function OrdersPage() {
 
         if (!isBasicActive) return false;
 
-        // Solo el cocinero no ve órdenes de solo bebidas
-        if (userRole === "cocinero") return !isDrinkOrder(o);
+        // Solo el cocinero no ve órdenes de solo bebidas (usando detección completa)
+        if (userRole === "cocinero") return !isAllDrinksOrder(o);
         return true;
       });
     } else {
@@ -395,14 +420,17 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
     const visibleProducts = isActive ? order.products.filter(p => !p.completed) : order.products;
 
     visibleProducts.forEach(p => {
+      // Primero intentamos usar la categoría guardada en el producto de la orden (p.category),
+      // luego el lookup en la colección de productos, y por último el nombre del producto.
+      const storedCategory = p.category;
       const productDef = allProducts.find(prod => prod.id === p.productId);
-      const cat = productDef?.category?.toLowerCase() || "";
-      const name = p.productName.toLowerCase();
+      const lookupCategory = productDef?.category;
+      const productName = p.productName;
 
-      const isDrink = cat.includes("bebida") || cat.includes("jugo") || cat.includes("gaseosa") ||
-        cat.includes("cerveza") || cat.includes("licor") || cat.includes("trago") ||
-        name.includes("bebida") || name.includes("jugo") || name.includes("gaseosa") ||
-        name.includes("cerveza") || name.includes("limonada") || name.includes("agua");
+      const isDrink =
+        isDrinkCategory(storedCategory) ||
+        isDrinkCategory(lookupCategory) ||
+        isDrinkCategory(productName);
 
       if (isDrink) {
         drinks.push(p);
