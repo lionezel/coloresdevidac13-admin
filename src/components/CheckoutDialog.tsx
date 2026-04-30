@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
     Dialog,
     DialogTitle,
@@ -13,6 +13,7 @@ import {
     MenuItem,
     IconButton,
     Alert,
+    CircularProgress,
 } from "@mui/material";
 import { Product } from "../interfaces/product";
 import CloseIcon from "@mui/icons-material/Close";
@@ -22,7 +23,6 @@ import { Order } from "../interfaces/Order";
 import { useCollection } from "../hooks/useCollection";
 import { CreditCustomer } from "../interfaces/CreditCustomer";
 import { useParams } from "react-router-dom";
-import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import { InvoiceReceipt } from "./InvoiceReceipt";
 import PrintIcon from "@mui/icons-material/Print";
@@ -42,6 +42,8 @@ export default function CheckoutDialog({
     onComplete,
 }: CheckoutDialogProps) {
     const { restaurantId } = useParams<{ restaurantId: string }>();
+    const [isLoading, setIsLoading] = useState(false);
+    const isBillingRef = useRef(false);
     const [paymentMethod, setPaymentMethod] = useState<string>("");
     const [cashReceived, setCashReceived] = useState<number | "">("");
     const [cashCurrency, setCashCurrency] = useState<"COP" | "USD">("COP");
@@ -209,44 +211,57 @@ export default function CheckoutDialog({
         if (isShortOnCash || isShortOnUSD) return;
         if (paymentMethod === "fiado" && !selectedCustomerId) return;
 
-        if (order) {
-            const customerData = selectedCustomer ? {
-                id: selectedCustomer.id!,
-                name: selectedCustomer.name
-            } : undefined;
+        // Prevenir doble envío
+        if (isBillingRef.current) return;
+        isBillingRef.current = true;
+        setIsLoading(true);
 
-            const payload: any = {
-                ...order,
-                products: localProducts,
-                subTotal,
-                discountAmount: discountAmount > 0 ? discountAmount : null,
-                discountType: discountAmount > 0 ? (discountType as "total" | "producto") : null,
-                discountMode: discountAmount > 0 ? discountMode : null,
-                discountValue: discountAmount > 0 ? Number(discountValue) : null,
-                discountProductId: discountAmount > 0 && discountType === "producto" && discountProductIdx !== ""
-                    ? localProducts[Number(discountProductIdx)].productId
-                    : null,
-                isGuiaPlan,
-                guiaDiscount: guiaDiscount > 0 ? guiaDiscount : null,
-                tipPercentage,
-                tipAmount,
-                total: totalGeneral,
-                customer: customerData,
-                // Multi-currency cash
-                cashCurrency: paymentMethod === "efectivo" ? cashCurrency : null,
-                usdReceived: paymentMethod === "efectivo" && cashCurrency === "USD" ? Number(usdReceived) : null,
-                usdExchangeRate: paymentMethod === "efectivo" && cashCurrency === "USD" ? Number(usdExchangeRate) : null,
-                changeInCOP: paymentMethod === "efectivo" && cashCurrency === "USD" ? copChangeFromUSD : null,
-            };
+        try {
+            if (order) {
+                const customerData = selectedCustomer ? {
+                    id: selectedCustomer.id!,
+                    name: selectedCustomer.name
+                } : undefined;
 
-            Object.keys(payload).forEach(key => {
-                if (payload[key] === undefined || payload[key] === null) {
-                    delete payload[key];
-                }
-            });
+                const payload: any = {
+                    ...order,
+                    products: localProducts,
+                    subTotal,
+                    discountAmount: discountAmount > 0 ? discountAmount : null,
+                    discountType: discountAmount > 0 ? (discountType as "total" | "producto") : null,
+                    discountMode: discountAmount > 0 ? discountMode : null,
+                    discountValue: discountAmount > 0 ? Number(discountValue) : null,
+                    discountProductId: discountAmount > 0 && discountType === "producto" && discountProductIdx !== ""
+                        ? localProducts[Number(discountProductIdx)].productId
+                        : null,
+                    isGuiaPlan,
+                    guiaDiscount: guiaDiscount > 0 ? guiaDiscount : null,
+                    tipPercentage,
+                    tipAmount,
+                    total: totalGeneral,
+                    customer: customerData,
+                    // Multi-currency cash
+                    cashCurrency: paymentMethod === "efectivo" ? cashCurrency : null,
+                    usdReceived: paymentMethod === "efectivo" && cashCurrency === "USD" ? Number(usdReceived) : null,
+                    usdExchangeRate: paymentMethod === "efectivo" && cashCurrency === "USD" ? Number(usdExchangeRate) : null,
+                    changeInCOP: paymentMethod === "efectivo" && cashCurrency === "USD" ? copChangeFromUSD : null,
+                };
 
-            await onComplete(payload as Order, paymentMethod, customerData);
-            onClose();
+                Object.keys(payload).forEach(key => {
+                    if (payload[key] === undefined || payload[key] === null) {
+                        delete payload[key];
+                    }
+                });
+
+                await onComplete(payload as Order, paymentMethod, customerData);
+                onClose();
+            }
+        } catch (err) {
+            console.error("Error al facturar:", err);
+            alert("Ocurrió un error al facturar la orden. Por favor intenta de nuevo.");
+        } finally {
+            setIsLoading(false);
+            isBillingRef.current = false;
         }
     };
 
@@ -738,18 +753,19 @@ export default function CheckoutDialog({
                     variant="contained"
                     size="large"
                     color="success"
-                    disabled={!paymentMethod || isShortOnCash || isShortOnUSD}
+                    disabled={!paymentMethod || isShortOnCash || isShortOnUSD || isLoading}
                     onClick={handleFinish}
-                    startIcon={<ReceiptLongIcon />}
+                    startIcon={isLoading ? <CircularProgress size={20} color="inherit" /> : <ReceiptLongIcon />}
                     sx={{
                         fontWeight: 800,
                         py: 1.5,
                         px: 4,
                         borderRadius: 8,
                         boxShadow: "0 8px 24px rgba(16, 185, 129, 0.4)",
+                        minWidth: 220,
                     }}
                 >
-                    COBRAR Y FACTURAR
+                    {isLoading ? "Procesando..." : "COBRAR Y FACTURAR"}
                 </Button>
             </DialogActions>
 
