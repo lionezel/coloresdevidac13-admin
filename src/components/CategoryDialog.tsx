@@ -10,6 +10,8 @@ import {
   Typography,
   Divider,
   CircularProgress,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import { useEffect, useState } from "react";
 import { storage } from "../firebase/config";
@@ -28,6 +30,7 @@ const empty: Category = {
   name: "",
   description: "",
   banner: "",
+  type: "food",
 };
 
 export default function CategoryDialog({ open, onClose, initial, onSubmit }: Props) {
@@ -108,7 +111,73 @@ export default function CategoryDialog({ open, onClose, initial, onSubmit }: Pro
 
           <Divider />
 
-          {/* SECCIÓN: APARIENCIA */}
+          {/* SECCIÓN: TIPO */}
+          <Box>
+            <Typography
+              variant="overline"
+              color="primary"
+              fontWeight={800}
+              sx={{ letterSpacing: 1.2, display: "block", mb: 2 }}
+            >
+              Tipo de Categoría
+            </Typography>
+            <ToggleButtonGroup
+              value={values.type ?? "food"}
+              exclusive
+              onChange={(_, val) => {
+                if (val !== null) handleChange("type", val);
+              }}
+              fullWidth
+              sx={{ gap: 1.5 }}
+            >
+              <ToggleButton
+                value="food"
+                sx={{
+                  flex: 1,
+                  borderRadius: "12px !important",
+                  fontWeight: 800,
+                  fontSize: "0.95rem",
+                  border: "1.5px solid",
+                  borderColor: values.type !== "drink" ? "success.main" : "divider",
+                  color: values.type !== "drink" ? "success.dark" : "text.secondary",
+                  bgcolor: values.type !== "drink" ? "#f0fdf4" : "transparent",
+                  py: 1.5,
+                  "&.Mui-selected": {
+                    bgcolor: "#dcfce7",
+                    borderColor: "success.main",
+                    color: "success.dark",
+                    "&:hover": { bgcolor: "#bbf7d0" },
+                  },
+                }}
+              >
+                🍽️  Comida
+              </ToggleButton>
+              <ToggleButton
+                value="drink"
+                sx={{
+                  flex: 1,
+                  borderRadius: "12px !important",
+                  fontWeight: 800,
+                  fontSize: "0.95rem",
+                  border: "1.5px solid",
+                  borderColor: values.type === "drink" ? "info.main" : "divider",
+                  color: values.type === "drink" ? "info.dark" : "text.secondary",
+                  bgcolor: values.type === "drink" ? "#eff6ff" : "transparent",
+                  py: 1.5,
+                  "&.Mui-selected": {
+                    bgcolor: "#dbeafe",
+                    borderColor: "info.main",
+                    color: "info.dark",
+                    "&:hover": { bgcolor: "#bfdbfe" },
+                  },
+                }}
+              >
+                🥤  Bebida
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+
+          <Divider />
           <Box>
             <Typography
               variant="overline"

@@ -9,6 +9,7 @@ import {
   CardContent,
   Box,
   IconButton,
+  Chip,
   useTheme,
   useMediaQuery,
 } from "@mui/material";
@@ -25,12 +26,14 @@ export type Category = {
   name: string;
   description?: string;
   banner?: string;
+  type?: "food" | "drink";
 };
 
 const emptyCategory: Category = {
   name: "",
   description: "",
   banner: "",
+  type: "food",
 };
 
 export default function CategoriesPage() {
@@ -75,7 +78,21 @@ export default function CategoriesPage() {
         <Typography fontWeight={700}>{p.value}</Typography>
       ),
     },
-    { field: "description", headerName: "Descripción", flex: 3 },
+    { field: "description", headerName: "Descripción", flex: 2 },
+    {
+      field: "type",
+      headerName: "Tipo",
+      width: 130,
+      renderCell: (params) => (
+        <Chip
+          label={params.value === "drink" ? "🥤 Bebida" : "🍽️ Comida"}
+          size="small"
+          color={params.value === "drink" ? "info" : "success"}
+          variant="outlined"
+          sx={{ fontWeight: 700, fontSize: "0.75rem" }}
+        />
+      ),
+    },
     {
       field: "actions",
       headerName: "Acciones",
@@ -178,6 +195,13 @@ export default function CategoriesPage() {
                     >
                       {cat.description}
                     </Typography>
+                    <Chip
+                      label={cat.type === "drink" ? "🥤 Bebida" : "🍽️ Comida"}
+                      size="small"
+                      color={cat.type === "drink" ? "info" : "success"}
+                      variant="outlined"
+                      sx={{ mt: 0.5, fontWeight: 700, fontSize: "0.7rem" }}
+                    />
                   </Box>
                   <Stack spacing={0.5} flexShrink={0}>
                     <IconButton size="small" onClick={() => handleEdit(cat)}>

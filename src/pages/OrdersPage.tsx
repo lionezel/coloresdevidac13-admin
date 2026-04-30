@@ -37,6 +37,7 @@ import { differenceInMinutes } from "date-fns";
 import { useParams, useNavigate } from "react-router-dom";
 import { Order, OrderStatus } from "../interfaces/Order";
 import { Product } from "../interfaces/product";
+import { Category } from "./CategoriesPage";
 
 
 /* =======================
@@ -82,46 +83,6 @@ const stopDelaySound = () => {
 };
 
 /* =======================
-   🥤 Helpers de Filtrado
- ======================= */
-const isDrinkCategory = (category?: string) => {
-  if (!category) return false;
-  const c = category.toLowerCase();
-  return (
-    c.includes("bebida") ||
-    c.includes("jugo") ||
-    c.includes("gaseosa") ||
-    c.includes("cerveza") ||
-    c.includes("licor") ||
-    c.includes("trago") ||
-    c.includes("coctel") ||
-    c.includes("cóctel") ||
-    c.includes("limonada") ||
-    c.includes("agua") ||
-    c.includes("café") ||
-    c.includes("te") ||
-    c.includes("té") ||
-    c.includes("bar") ||
-    c.includes("soda") ||
-    c.includes("whisky") ||
-    c.includes("whiskey") ||
-    c.includes("vodka") ||
-    c.includes("ron") ||
-    c.includes("aguardiente") ||
-    c.includes("vino") ||
-    c.includes("champagne") ||
-    c.includes("tequila") ||
-    c.includes("gin") ||
-    c.includes("alco")
-  );
-};
-
-const isDrinkOrder = (order: Order) => {
-  if (!order.products || order.products.length === 0) return false;
-  return order.products.every(p => isDrinkCategory(p.category));
-};
-
-/* =======================
    🚀 Componente Principal
  ======================= */
 
@@ -140,6 +101,21 @@ export default function OrdersPage() {
   } = useCollection<Order>(restaurantId!, "orders");
 
   const { data: allProducts = [] } = useCollection<Product>(restaurantId!, "products");
+  const { data: categories = [] } = useCollection<Category>(restaurantId!, "category");
+
+  // Mapa: nombre de categoría → tipo ("food" | "drink")
+  // Si una categoría no tiene `type` definido, se trata como comida (por defecto seguro)
+  const categoryTypeMap = useMemo(() => {
+    const map = new Map<string, "food" | "drink">();
+    categories.forEach(cat => map.set(cat.name, cat.type ?? "food"));
+    return map;
+  }, [categories]);
+
+  // Helper: determina si una categoría es bebida usando el mapa
+  const isDrink = (categoryName?: string): boolean => {
+    if (!categoryName) return false;
+    return categoryTypeMap.get(categoryName) === "drink";
+  };
 
   const handleSendToCashier = async (order: Order) => {
     // La cocina marca el pedido como listo para cobrar y facturar.
@@ -232,16 +208,15 @@ export default function OrdersPage() {
 
   /* 📂 Filtrado y Ordenamiento */
 
-  // Verifica si TODOS los productos de una orden son bebidas (usando lookup completo)
+  // Verifica si TODOS los productos de una orden son bebidas (usando mapa de categorías)
   // Para el cocinero: si la orden es solo bebidas, no debe aparecer.
   const isAllDrinksOrder = (order: Order): boolean => {
     if (!order.products || order.products.length === 0) return false;
     return order.products.every(p => {
       const productDef = allProducts.find(prod => prod.id === p.productId);
       return (
-        isDrinkCategory(p.category) ||
-        isDrinkCategory(productDef?.category) ||
-        isDrinkCategory(p.productName)
+        isDrink(p.category) ||
+        isDrink(productDef?.category)
       );
     });
   };
@@ -255,7 +230,7 @@ export default function OrdersPage() {
       if (userRole === "cocinero") return !isAllDrinksOrder(o);
       return true;
     }).length;
-  }, [orders, userRole, allProducts]);
+  }, [orders, userRole, allProducts, categoryTypeMap]);
 
   const filteredOrders = useMemo(() => {
     const sorted = [...orders].sort((a, b) => {
@@ -374,6 +349,7 @@ export default function OrdersPage() {
                 onComplete={handleSendToCashier}
                 onDelete={deleteItem}
                 onEdit={(id) => navigate(`/${restaurantId}/edit-order/${id}`)}
+                isDrinkFn={isDrink}
               />
             </Grid>
           ))
@@ -387,7 +363,7 @@ export default function OrdersPage() {
    📦 Tarjeta de Orden (Refinada)
  ======================= */
 
-function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, onComplete, onDelete, onEdit, onUpdateOrder }: {
+function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, onComplete, onDelete, onEdit, onUpdateOrder, isDrinkFn }: {
   order: Order;
   allProducts: Product[];
   userRole?: string;
@@ -397,6 +373,7 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onUpdateOrder: (id: string, updates: Partial<Order>) => Promise<void> | void;
+  isDrinkFn: (categoryName?: string) => boolean;
 }) {
   const date = order.date?.toDate ? order.date.toDate() : new Date(order.date);
   const minutes = differenceInMinutes(new Date(), date);
@@ -420,19 +397,18 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
     const visibleProducts = isActive ? order.products.filter(p => !p.completed) : order.products;
 
     visibleProducts.forEach(p => {
-      // Primero intentamos usar la categoría guardada en el producto de la orden (p.category),
-      // luego el lookup en la colección de productos, y por último el nombre del producto.
+      // Usa el mapa de categorías para determinar el tipo.
+      // Primero la categoría guardada en el producto de la orden,
+      // luego la del lookup en la colección de productos.
       const storedCategory = p.category;
       const productDef = allProducts.find(prod => prod.id === p.productId);
       const lookupCategory = productDef?.category;
-      const productName = p.productName;
 
-      const isDrink =
-        isDrinkCategory(storedCategory) ||
-        isDrinkCategory(lookupCategory) ||
-        isDrinkCategory(productName);
+      const isDrinkItem =
+        isDrinkFn(storedCategory) ||
+        isDrinkFn(lookupCategory);
 
-      if (isDrink) {
+      if (isDrinkItem) {
         drinks.push(p);
       } else {
         food.push(p);
@@ -440,7 +416,7 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
     });
 
     return { foodItems: food, drinkItems: drinks };
-  }, [order.products, allProducts, order.state]);
+  }, [order.products, allProducts, order.state, isDrinkFn]);
 
   const renderProduct = (p: typeof order.products[0], idx: number) => (
     <Box key={`${p.productId}-${idx}`}>
