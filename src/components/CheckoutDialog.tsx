@@ -106,6 +106,20 @@ export default function CheckoutDialog({
 
     const discountAmount = useMemo(() => {
         let baseDiscount = 0;
+        
+        // Sum individual product discounts
+        localProducts.forEach(p => {
+            if (p.discount && p.discount > 0) {
+                const targetAmount = Number(p.total ?? (p.price * p.quantity));
+                if (p.discountMode === "fixed") {
+                    baseDiscount += Number(p.discount);
+                } else {
+                    baseDiscount += Math.round(targetAmount * (Number(p.discount) / 100));
+                }
+            }
+        });
+
+        // Add global discount if any
         if (discountType !== "none" && discountValue) {
             let targetAmount = subTotal;
             if (discountType === "producto") {
@@ -114,12 +128,13 @@ export default function CheckoutDialog({
                     if (p) targetAmount = Number(p.total ?? (p.price * p.quantity));
                 }
             }
+            let extraDiscount = 0;
             if (discountMode === "percentage") {
-                baseDiscount = Math.round(targetAmount * (Number(discountValue) / 100));
+                extraDiscount = Math.round(targetAmount * (Number(discountValue) / 100));
             } else {
-                baseDiscount = Number(discountValue);
+                extraDiscount = Number(discountValue);
             }
-            baseDiscount = Math.min(baseDiscount, targetAmount);
+            baseDiscount += Math.min(extraDiscount, targetAmount);
         }
 
         return baseDiscount + guiaDiscount;
@@ -138,7 +153,10 @@ export default function CheckoutDialog({
             // No pre-llenamos el método de pago para obligar al usuario a seleccionarlo
             setPaymentMethod("");
             // Deep copy and group objects to avoid mutation and unify lines for billing
-            setLocalProducts(groupProducts(order.products).map(p => ({ ...p })));
+            setLocalProducts(groupProducts(order.products).map(p => ({ 
+                ...p, 
+                discountMode: p.discountMode || "percentage" 
+            })));
         } else {
             setLocalProducts([]);
         }
@@ -163,6 +181,26 @@ export default function CheckoutDialog({
             const item = { ...next[idx] };
             item.price = newPrice;
             item.total = newPrice * item.quantity;
+            next[idx] = item;
+            return next;
+        });
+    };
+
+    const handleProductDiscountChange = (idx: number, val: number) => {
+        setLocalProducts(prev => {
+            const next = [...prev];
+            const item = { ...next[idx] };
+            item.discount = val;
+            next[idx] = item;
+            return next;
+        });
+    };
+
+    const handleProductDiscountModeChange = (idx: number, mode: "percentage" | "fixed") => {
+        setLocalProducts(prev => {
+            const next = [...prev];
+            const item = { ...next[idx] };
+            item.discountMode = mode;
             next[idx] = item;
             return next;
         });
@@ -495,7 +533,7 @@ export default function CheckoutDialog({
                     <Stack spacing={1.5}>
                         {localProducts.map((p, idx) => (
                             <Box key={idx} sx={{ p: 1.5, bgcolor: "#f8fafc", borderRadius: 2, border: "1px solid #e2e8f0" }}>
-                                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2} mb={1.5}>
                                     <Box sx={{ flex: 1 }}>
                                         <Typography variant="body2" fontWeight={800}>
                                             {p.quantity}x {p.productName}
@@ -514,6 +552,39 @@ export default function CheckoutDialog({
                                         InputProps={{
                                             startAdornment: <Typography variant="caption" sx={{ mr: 0.5, fontWeight: 700 }}>$</Typography>,
                                             sx: { borderRadius: 1.5, fontWeight: 800 }
+                                        }}
+                                    />
+                                </Stack>
+                                <Divider sx={{ my: 1.5, borderStyle: 'dotted' }} />
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <Typography variant="caption" fontWeight={700} sx={{ minWidth: 70 }}>Desc. Ítem:</Typography>
+                                    <Stack direction="row" spacing={0.5}>
+                                        <Button
+                                            variant={p.discountMode === "fixed" ? "outlined" : "contained"}
+                                            size="small"
+                                            onClick={() => handleProductDiscountModeChange(idx, "percentage")}
+                                            sx={{ minWidth: 32, px: 1, height: 28, fontSize: '0.7rem' }}
+                                        >
+                                            %
+                                        </Button>
+                                        <Button
+                                            variant={p.discountMode === "fixed" ? "contained" : "outlined"}
+                                            size="small"
+                                            onClick={() => handleProductDiscountModeChange(idx, "fixed")}
+                                            sx={{ minWidth: 32, px: 1, height: 28, fontSize: '0.7rem' }}
+                                        >
+                                            $
+                                        </Button>
+                                    </Stack>
+                                    <TextField
+                                        size="small"
+                                        type="number"
+                                        placeholder="0"
+                                        value={p.discount || ""}
+                                        onChange={(e) => handleProductDiscountChange(idx, Number(e.target.value))}
+                                        sx={{ flex: 1, bgcolor: "#fff" }}
+                                        InputProps={{
+                                            sx: { borderRadius: 1.5, height: 32, fontSize: '0.85rem' }
                                         }}
                                     />
                                 </Stack>

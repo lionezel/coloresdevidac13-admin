@@ -82,6 +82,11 @@ export const InvoiceReceipt = React.forwardRef<HTMLDivElement, InvoiceReceiptPro
                             {p.additions?.map((add, aIdx) => (
                                 <div key={aIdx} style={{ fontSize: '0.85em', textTransform: 'none' }}>+ {add.name} ({priceToString(add.price)})</div>
                             ))}
+                            {p.discount && p.discount > 0 && (
+                                <div style={{ fontSize: '0.85em', textTransform: 'none', color: '#000' }}>
+                                    DESC: -{p.discountMode === 'fixed' ? `$${priceToString(p.discount)}` : `${p.discount}%`}
+                                </div>
+                            )}
                         </span>
                         <span style={{ width: '50px', textAlign: 'right' }}>{priceToString(p.price)}</span>
                         <span style={{ width: '40px', textAlign: 'right' }}>x{p.quantity}</span>

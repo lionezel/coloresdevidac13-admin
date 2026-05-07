@@ -17,6 +17,9 @@ import { Product, Variant } from "../interfaces/product";
 import { storage } from "../firebase/config";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { useCollection } from "../hooks/useCollection";
+import { useParams } from "react-router-dom";
+import { InventoryItem } from "../interfaces/Inventory";
 
 interface Props {
   open: boolean;
@@ -35,6 +38,8 @@ export default function ProductDialog({
 }: Props) {
   const [values, setValues] = useState<Product>(initial);
   const [uploading, setUploading] = useState(false);
+  const { restaurantId } = useParams<{ restaurantId: string }>();
+  const { data: inventory = [] } = useCollection<InventoryItem>(restaurantId!, "inventory");
 
   useEffect(() => {
     // Asegurar compatibilidad: si no tiene variante aún, crear una base
@@ -176,6 +181,20 @@ export default function ProductDialog({
                   helperText="Se asume al inicio"
                 />
               </Stack>
+
+              <TextField
+                select
+                label="Vincular a Insumo (Opcional)"
+                value={currentVariant.inventoryItemId || ""}
+                onChange={(e) => handleVariantChange("inventoryItemId", e.target.value)}
+                fullWidth
+                helperText="Si lo vinculas, cada venta descontará 1 unidad del inventario."
+              >
+                <MenuItem value="">-- Ninguno --</MenuItem>
+                {inventory.map((item) => (
+                  <MenuItem key={item.id} value={item.id}>{item.name}</MenuItem>
+                ))}
+              </TextField>
             </Stack>
           </Box>
 

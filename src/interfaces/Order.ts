@@ -18,6 +18,8 @@ export interface OrderProduct {
     completed?: boolean;
     isAddition?: boolean;
     completedQuantity?: number;
+    discount?: number;
+    discountMode?: "percentage" | "fixed";
 }
 
 export type OrderStatus =

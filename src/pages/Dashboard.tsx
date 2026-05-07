@@ -142,14 +142,13 @@ export default function Dashboard() {
     "orderssuccess"
   );
 
-  const { data: products = [] } = useCollection<Product>(
+  const { data: products = [], updateItem: updateProduct } = useCollection<Product>(
     restaurantId ?? "",
     "products"
   );
 
   const [period, setPeriod] = useState<Period>("month");
   const [customDate, setCustomDate] = useState<Date | undefined>(new Date());
-  const [stockSearch, setStockSearch] = useState("");
   const analytics = useAnalytics(orders, period, customDate);
 
   if (!restaurantId) {
@@ -549,76 +548,6 @@ export default function Dashboard() {
                   <Bar dataKey="revenue" fill="#2e7d32" radius={[0, 4, 4, 0]} barSize={20} />
                 </BarChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* INVENTARIO / STOCK DIARIO */}
-        <Grid size={{ xs: 12 }}>
-          <Card sx={{ borderRadius: 4, height: '100%', mt: 2 }}>
-            <CardContent>
-              <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} spacing={2} mb={2}>
-                <Typography fontWeight={800}>
-                  Control de Inventario Diario
-                </Typography>
-                <TextField
-                  size="small"
-                  placeholder="Buscar producto…"
-                  value={stockSearch}
-                  onChange={(e) => setStockSearch(e.target.value)}
-                  sx={{ bgcolor: "#fff", borderRadius: 2, minWidth: 220 }}
-                />
-              </Stack>
-              <Box sx={{ 
-                overflowX: "auto", 
-                mx: -2, // pull to edges on mobile
-                px: 2,
-                "&::-webkit-scrollbar": { height: 6 },
-                "&::-webkit-scrollbar-thumb": { backgroundColor: "#e2e8f0", borderRadius: 3 }
-              }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
-                  <thead>
-                    <tr style={{ borderBottom: "2px solid #e2e8f0", textAlign: "left" }}>
-                      <th style={{ padding: "12px 16px", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.75rem" }}>Producto</th>
-                      <th style={{ padding: "12px 16px", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.75rem" }}>Categoría</th>
-                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.75rem" }}>Stock Inicial</th>
-                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.75rem" }}>Ventas</th>
-                      <th style={{ padding: "12px 16px", textAlign: "right", color: "#64748b", whiteSpace: "nowrap", fontSize: "0.75rem" }}>Stock Actual</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.flatMap(p =>
-                      p.variants?.map(v => {
-                        const isToday = v.lastStockResetDate === new Date().toLocaleDateString();
-                        const initial = isToday && v.initialDailyStock !== undefined ? v.initialDailyStock : v.stock;
-                        const current = v.stock;
-                        const sold = initial - current;
-
-                        return {
-                          name: `${p.name}`,
-                          category: p.category,
-                          initial,
-                          current,
-                          sold
-                        };
-                      }) || []
-                    )
-                      .filter(item =>
-                        item.name.toLowerCase().includes(stockSearch.toLowerCase())
-                      )
-                      .sort((a, b) => b.sold - a.sold)
-                      .map((item, idx) => (
-                        <tr key={idx} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                          <td style={{ padding: "12px 16px", fontWeight: 700, color: "#334155", fontSize: "0.8rem" }}>{item.name}</td>
-                          <td style={{ padding: "12px 16px", color: "#94a3b8", fontWeight: 500, fontSize: "0.75rem" }}>{item.category}</td>
-                          <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "#64748b", fontSize: "0.8rem" }}>{item.initial}</td>
-                          <td style={{ padding: "12px 16px", textAlign: "right", color: item.sold > 0 ? "#f59e0b" : "#cbd5e1", fontWeight: 800, fontSize: "0.8rem" }}>{item.sold}</td>
-                          <td style={{ padding: "12px 16px", textAlign: "right", color: item.current <= 5 ? "#ef4444" : "#10b981", fontWeight: 900, fontSize: "0.8rem" }}>{item.current}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </Box>
             </CardContent>
           </Card>
         </Grid>

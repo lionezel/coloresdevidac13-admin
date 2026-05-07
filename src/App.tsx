@@ -21,6 +21,7 @@ import AdditionsPage from "./pages/AdditionsPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import CashClosingPage from "./pages/CashClosingPage";
 import CreateOrderPage from "./pages/CreateOrderPage";
+import InventoryPage from "./pages/InventoryPage";
 
 
 const theme = createTheme({
@@ -70,6 +71,7 @@ export default function App() {
                   <Route path="discounts" element={<DiscountsPage />} />
                   <Route path="delivery" element={<DeliveryPage />} />
                   <Route path="additions" element={<AdditionsPage />} />
+                  <Route path="inventory" element={<InventoryPage />} />
                 </Route>
               </Route>
             </Route>

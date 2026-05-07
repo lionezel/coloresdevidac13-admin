@@ -6,6 +6,7 @@ export interface Variant {
   initialDailyStock?: number;
   lastStockResetDate?: string;
   image: string;
+  inventoryItemId?: string;
 }
 
 export interface Product {
@@ -14,5 +15,6 @@ export interface Product {
   category: string;
   description: string;
   active: boolean;
+  inventoryItemId?: string;
   variants: Variant[];
 }

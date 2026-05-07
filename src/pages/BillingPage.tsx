@@ -38,9 +38,10 @@ import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
 import { InvoiceReceipt } from "../components/InvoiceReceipt";
 import { useCollection } from "../hooks/useCollection";
-import { doc, getDoc, updateDoc, addDoc, collection, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, addDoc, collection, deleteDoc, writeBatch, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { Product } from "../interfaces/product";
+import { InventoryItem, StockMovement } from "../interfaces/Inventory";
 import { differenceInMinutes } from "date-fns";
 import { useParams, useNavigate } from "react-router-dom";
 import { Order } from "../interfaces/Order";
@@ -125,34 +126,75 @@ export default function BillingPage() {
     };
 
     const confirmCheckout = async (orderToComplete: Order, finalPaymentMethod: string) => {
+        if (!restaurantId) {
+            alert("Error: No se encontró el ID del restaurante.");
+            return;
+        }
+
         try {
-            // -- DESCUENTO DE STOCK --
+            const batch = writeBatch(db);
             const todayStr = new Date().toLocaleDateString();
+
+            // -- 1. DESCUENTO DE PRODUCTOS Y VARIANTES --
+            // Para mantener la consistencia, usamos un enfoque de lectura previa y luego actualización en lote si es posible,
+            // pero como los productos pueden ser muchos, seguiremos el patrón de restabarlabello.
             for (const p of orderToComplete.products) {
                 if (!p.productId || !p.variantId || p.productId === "__standalone__") continue;
-                const docRef = doc(db, "restaurants", restaurantId!, "products", p.productId);
-                const snap = await getDoc(docRef);
+                
+                const productRef = doc(db, "restaurants", restaurantId!, "products", p.productId);
+                const snap = await getDoc(productRef);
+                
                 if (snap.exists()) {
                     const pData = snap.data() as Product;
                     const vIndex = pData.variants?.findIndex(v => v.id === p.variantId);
+                    
                     if (vIndex !== undefined && vIndex > -1) {
                         let variant = pData.variants[vIndex];
-                        // Reset diario
+                        const qty = Number(p.quantity || 1);
+
+                        // Reset diario si aplica
                         if (variant.lastStockResetDate !== todayStr) {
                             variant.initialDailyStock = variant.stock;
                             variant.lastStockResetDate = todayStr;
                         }
-                        // Descontar
-                        const qty = Number(p.quantity || 1);
-                        variant.stock = Math.max(0, (variant.stock || 0) - qty);
 
+                        // Descontar stock de la variante
+                        variant.stock = Math.max(0, (variant.stock || 0) - qty);
                         pData.variants[vIndex] = variant;
-                        await updateDoc(docRef, { variants: pData.variants });
+
+                        // Actualizar producto
+                        batch.update(productRef, { variants: pData.variants });
+
+                        // -- 2. DESCUENTO DE INVENTARIO VINCULADO (INSUMOS) --
+                        // Revisamos si la variante o el producto tienen un inventoryItemId
+                        const invId = variant.inventoryItemId || pData.inventoryItemId;
+                        if (invId) {
+                            const invRef = doc(db, "restaurants", restaurantId!, "inventory", invId);
+                            const invSnap = await getDoc(invRef);
+                            
+                            if (invSnap.exists()) {
+                                const invData = invSnap.data() as InventoryItem;
+                                const newInvStock = (invData.currentStock || 0) - qty;
+                                
+                                const movement: StockMovement = {
+                                    type: "sale",
+                                    quantity: -qty,
+                                    date: new Date(),
+                                    user: userDoc?.name || "Sistema",
+                                    description: `Venta: ${p.productName} (${orderToComplete.name})`,
+                                };
+
+                                batch.update(invRef, {
+                                    currentStock: newInvStock,
+                                    movements: [...(invData.movements || []), movement]
+                                });
+                            }
+                        }
                     }
                 }
             }
 
-            // -- GUARDAR ORDEN --
+            // -- 3. GUARDAR ORDEN Y ELIMINAR PENDIENTE --
             const rawOrder = {
                 ...orderToComplete,
                 paymentMethod: finalPaymentMethod,
@@ -160,16 +202,20 @@ export default function BillingPage() {
                 dateSuccess: new Date(),
             };
             
-            // Limpiamos recursivamente el objeto para que Firestore no rechace valores `undefined`
             const cleanOrder = removeUndefined(rawOrder) as Order;
-            
-            await createSuccess(cleanOrder);
+            const successRef = doc(collection(db, "restaurants", restaurantId!, "orderssuccess"));
+            batch.set(successRef, cleanOrder);
+
             if (orderToComplete.id) {
-                await deleteItem(orderToComplete.id);
+                const orderRef = doc(db, "restaurants", restaurantId!, "orders", orderToComplete.id);
+                batch.delete(orderRef);
             }
-        } catch (error) {
+
+            await batch.commit();
+        } catch (error: any) {
             console.error("Error al procesar inventario o caja:", error);
-            alert("Error al procesar la orden o el inventario. Revisa la consola.");
+            alert(`Error al procesar la orden o el inventario: ${error?.message || "Error desconocido"}`);
+            throw error; // Re-throw to prevent dialog closing if it failed
         }
     };
 

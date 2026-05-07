@@ -24,6 +24,7 @@ import { useCollection } from "../hooks/useCollection";
 import ProductDialog from "../components/ProductDialog";
 import { Product } from "../interfaces/product";
 import { useAuth } from "../hooks/useAuth";
+import { InventoryItem } from "../interfaces/Inventory";
 
 export default function ProductsPage() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
@@ -40,6 +41,11 @@ export default function ProductsPage() {
   const { data: categories = [] } = useCollection<{ id: string; name: string }>(
     restaurantId ?? "",
     "category"
+  );
+
+  const { data: inventoryItems = [] } = useCollection<InventoryItem>(
+    restaurantId ?? "",
+    "inventory"
   );
 
   const { canCreate, canEdit, canDelete } = useAuth();
@@ -80,6 +86,26 @@ export default function ProductsPage() {
     },
     { field: "name", headerName: "Nombre", flex: 1 },
     { field: "category", headerName: "Categoría", flex: 1 },
+    {
+      field: "inventoryLink",
+      headerName: "Inventario Vinculado",
+      flex: 1,
+      renderCell: (params) => {
+        const product = params.row as Product;
+        const invId = product.inventoryItemId || product.variants?.find(v => v.inventoryItemId)?.inventoryItemId;
+        if (!invId) return <Typography variant="caption" color="text.disabled">No vinculado</Typography>;
+        
+        const invItem = inventoryItems.find(i => i.id === invId);
+        return (
+          <Chip 
+            label={invItem?.name || "ID: " + invId.substring(0,6)} 
+            size="small" 
+            variant="outlined"
+            color={invItem ? "primary" : "default"}
+          />
+        );
+      }
+    },
     {
       field: "price",
       headerName: "Desde",
@@ -129,16 +155,33 @@ export default function ProductsPage() {
       <Typography variant="h5">📦 Productos</Typography>
 
       {canCreate && (
-        <Button
-            variant="contained"
-            fullWidth={isMobile}
-            onClick={() => {
-            setCurrent(null);
-            setOpen(true);
-            }}
-        >
-            Agregar producto
-        </Button>
+        <Stack direction="row" spacing={2} width={isMobile ? "100%" : "auto"}>
+          <Button
+              variant="outlined"
+              color="error"
+              fullWidth={isMobile}
+              onClick={async () => {
+                if (window.confirm("¿Estás seguro de que deseas limpiar el stock de TODOS los productos? Esto pondrá el stock en 0.")) {
+                  for (const p of products) {
+                    const updatedVariants = p.variants.map(v => ({ ...v, stock: 0, initialDailyStock: 0 }));
+                    await updateItem(p.id!, { variants: updatedVariants });
+                  }
+                }
+              }}
+          >
+              Limpiar Todo
+          </Button>
+          <Button
+              variant="contained"
+              fullWidth={isMobile}
+              onClick={() => {
+              setCurrent(null);
+              setOpen(true);
+              }}
+          >
+              Agregar producto
+          </Button>
+        </Stack>
       )}
     </Stack>
   );
@@ -303,6 +346,18 @@ export default function ProductsPage() {
                   <Typography variant="body2" color="text.secondary">
                     {product.category}
                   </Typography>
+                  {(() => {
+                    const invId = product.inventoryItemId || product.variants?.find(v => v.inventoryItemId)?.inventoryItemId;
+                    if (invId) {
+                      const invItem = inventoryItems.find(i => i.id === invId);
+                      return (
+                        <Typography variant="caption" sx={{ display: 'block', color: 'primary.main', fontWeight: 700 }}>
+                          📦 {invItem?.name || "Vinculado"}
+                        </Typography>
+                      );
+                    }
+                    return null;
+                  })()}
                   <Typography variant="body2">
                     Desde: $
                     {Math.min(...product.variants.map((v: any) => v.price))}

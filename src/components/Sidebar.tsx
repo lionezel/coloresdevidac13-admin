@@ -102,6 +102,12 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
       path: `/${restaurantId}/additions`,
     },
     {
+      id: "inventory",
+      text: "Inventario",
+      icon: <InventoryIcon />,
+      path: `/${restaurantId}/inventory`,
+    },
+    {
       id: "users",
       text: "Usuarios",
       icon: <PeopleIcon />,

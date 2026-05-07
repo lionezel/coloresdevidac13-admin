@@ -5,6 +5,10 @@ import { OrderProduct } from "../interfaces/Order";
  * This is necessary because Firestore does not support `undefined` values.
  */
 export function removeUndefined(obj: any): any {
+  if (typeof obj === "number" && isNaN(obj)) {
+    return 0;
+  }
+
   if (obj === null || typeof obj !== "object") {
     return obj;
   }

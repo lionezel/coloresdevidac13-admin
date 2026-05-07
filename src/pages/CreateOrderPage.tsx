@@ -428,7 +428,18 @@ export default function CreateOrderPage() {
   // ─── Totals ───────────────────────────────────────────────────────────────
   const cartTotal = useMemo(() => {
     const productTotal = cart.reduce(
-      (acc, item) => acc + Number(item.total ?? Number(item.price) * Number(item.quantity)),
+      (acc, item) => {
+        const base = Number(item.total ?? Number(item.price) * Number(item.quantity));
+        let itemDiscount = 0;
+        if (item.discount && item.discount > 0) {
+          if (item.discountMode === "fixed") {
+            itemDiscount = item.discount;
+          } else {
+            itemDiscount = Math.round(base * (item.discount / 100));
+          }
+        }
+        return acc + base - itemDiscount;
+      },
       0
     );
     const saTotal = standaloneAdditions.reduce((acc, sa) => acc + sa.price * sa.quantity, 0);
