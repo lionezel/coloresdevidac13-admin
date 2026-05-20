@@ -89,7 +89,7 @@ export default function CashClosingPage() {
 
     // Colecciones
     const { data: orders = [] } = useCollection<Order>(restaurantId!, "orderssuccess");
-    const { data: closings = [], createItem: saveClosing } = useCollection<CashClosing>(restaurantId!, "cashclosings");
+    const { data: closings = [], createItem: saveClosing, updateItem: updateClosing } = useCollection<CashClosing>(restaurantId!, "cashclosings");
     const { data: transactions = [], createItem: createTransaction, deleteItem: deleteTransaction } = useCollection<CashTransaction>(restaurantId!, "cashtransactions");
 
     // Estados locales
@@ -389,8 +389,13 @@ export default function CashClosingPage() {
                 createdAt: Timestamp.now() as any,
             };
 
-            await saveClosing(closingData);
-            setSuccessMsg("Cierre de caja guardado exitosamente.");
+            if (existingClosingToday && existingClosingToday.id) {
+                await updateClosing(existingClosingToday.id, closingData);
+                setSuccessMsg("Cierre de caja actualizado exitosamente.");
+            } else {
+                await saveClosing(closingData);
+                setSuccessMsg("Cierre de caja guardado exitosamente.");
+            }
             
             // Eliminamos los resets manuales para permitir que el useEffect transicione 
             // los valores correctamente desde el nuevo snapshot de Firestore.
@@ -706,7 +711,7 @@ export default function CashClosingPage() {
                                                     label={`$${val / 1000}k`}
                                                     value={denominations[`bills${val}` as keyof typeof denominations]}
                                                     onChange={(n) => setDenominations({ ...denominations, [`bills${val}`]: n })}
-                                                    disabled={isClosedToday}
+                                                    disabled={false}
                                                 />
                                             </Grid>
                                         ))}
@@ -719,7 +724,7 @@ export default function CashClosingPage() {
                                                     label={`$${val}`}
                                                     value={denominations[`coins${val}` as keyof typeof denominations]}
                                                     onChange={(n) => setDenominations({ ...denominations, [`coins${val}`]: n })}
-                                                    disabled={isClosedToday}
+                                                    disabled={false}
                                                 />
                                             </Grid>
                                         ))}
@@ -746,7 +751,7 @@ export default function CashClosingPage() {
                                             variant="outlined"
                                             value={previousDayCash || ""}
                                             onChange={(e) => setPreviousDayCash(Number(e.target.value))}
-                                            disabled={isClosedToday}
+                                            disabled={false}
                                             InputProps={{
                                                 startAdornment: <AttachMoney sx={{ color: "text.disabled", mr: 1 }} />,
                                             }}
@@ -760,7 +765,7 @@ export default function CashClosingPage() {
                                             variant="outlined"
                                             value={withdrawnAmount || ""}
                                             onChange={(e) => setWithdrawnAmount(Number(e.target.value))}
-                                            disabled={isClosedToday}
+                                            disabled={false}
                                             InputProps={{
                                                 startAdornment: <AttachMoney sx={{ color: "error.main", mr: 1 }} />,
                                             }}
@@ -775,7 +780,7 @@ export default function CashClosingPage() {
                                             variant="outlined"
                                             value={openingBalanceDesc || ""}
                                             onChange={(e) => setOpeningBalanceDesc(e.target.value)}
-                                            disabled={isClosedToday}
+                                            disabled={false}
                                             helperText="Especifique el motivo del retiro de hoy."
                                             sx={{ mt: 2 }}
                                         />
@@ -814,7 +819,7 @@ export default function CashClosingPage() {
                                                     variant="outlined"
                                                     value={actualCardStr || ""}
                                                     onChange={(e) => setActualCardStr(e.target.value)}
-                                                    disabled={isClosedToday}
+                                                    disabled={false}
                                                     InputProps={{
                                                         startAdornment: <CreditCard sx={{ fontSize: 18, color: "text.disabled", mr: 1 }} />,
                                                     }}
@@ -839,7 +844,7 @@ export default function CashClosingPage() {
                                                     variant="outlined"
                                                     value={actualTransferStr || ""}
                                                     onChange={(e) => setActualTransferStr(e.target.value)}
-                                                    disabled={isClosedToday}
+                                                    disabled={false}
                                                     InputProps={{
                                                         startAdornment: <AccountBalance sx={{ fontSize: 18, color: "text.disabled", mr: 1 }} />,
                                                     }}
@@ -929,7 +934,7 @@ export default function CashClosingPage() {
                                             fullWidth
                                             value={notes}
                                             onChange={(e) => setNotes(e.target.value)}
-                                            disabled={isClosedToday}
+                                            disabled={false}
                                             placeholder="Ej: descuadre de caja, gastos menores, etc."
                                         />
 
@@ -938,7 +943,7 @@ export default function CashClosingPage() {
                                             size="large"
                                             fullWidth
                                             onClick={handleSaveClosing}
-                                            disabled={loading || todayOrders.length === 0 || isClosedToday}
+                                            disabled={loading || todayOrders.length === 0}
                                             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save />}
                                             sx={{
                                                 py: 2,
@@ -949,11 +954,11 @@ export default function CashClosingPage() {
                                                 boxShadow: 4
                                             }}
                                         >
-                                            {isClosedToday ? "Día ya cerrado" : loading ? "Guardando..." : "Guardar Cierre de Caja"}
+                                            {loading ? "Guardando..." : isClosedToday ? "Actualizar Cierre de Caja" : "Guardar Cierre de Caja"}
                                         </Button>
                                         {isClosedToday && (
                                             <Typography variant="caption" color="success.main" textAlign="center" fontWeight={800} mt={1} display="block">
-                                                Caja cerrada correctamente para este día.
+                                                Caja cerrada correctamente. Puedes actualizar los datos si es necesario.
                                             </Typography>
                                         )}
                                         {todayOrders.length === 0 && !isClosedToday && (
