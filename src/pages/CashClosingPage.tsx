@@ -25,6 +25,7 @@ import {
     Dialog,
     DialogTitle,
     DialogContent,
+    DialogActions,
     Tabs,
     Tab,
     Collapse,
@@ -122,6 +123,11 @@ export default function CashClosingPage() {
     });
 
     // --- NUEVOS ESTADOS PARA DESGLOSE ---
+    const [nextDayModalOpen, setNextDayModalOpen] = useState(false);
+    const [nextDayDenominations, setNextDayDenominations] = useState({
+        coins50: 0, coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
+        bills2000: 0, bills5000: 0, bills10000: 0, bills20000: 0, bills50000: 0, bills100000: 0
+    });
     const [denominations, setDenominations] = useState(() => {
         const saved = localStorage.getItem(`closing_denoms_${restaurantId}`);
         if(saved) { try { return JSON.parse(saved); } catch(e){} }
@@ -251,6 +257,9 @@ export default function CashClosingPage() {
             if (restaurantId) {
                 const savedDenoms = localStorage.getItem(`closing_denoms_${restaurantId}`);
                 if (savedDenoms) { try { setDenominations(JSON.parse(savedDenoms)); } catch (e) { } }
+                else if (priorClosings.length > 0 && priorClosings[0].nextDayDenominations) {
+                    setDenominations(priorClosings[0].nextDayDenominations as any);
+                }
                 else {
                     setDenominations({
                         coins50: 0, coins100: 0, coins200: 0, coins500: 0, coins1000: 0,
@@ -350,6 +359,17 @@ export default function CashClosingPage() {
     const transferDifference = useMemo(() => actualTransfer - summary.transferencia, [actualTransfer, summary.transferencia]);
     const cardDifference = useMemo(() => actualCard - summary.tarjeta, [actualCard, summary.tarjeta]);
 
+    const handleOpenNextDayModal = () => {
+        if (existingClosingToday && existingClosingToday.nextDayDenominations) {
+            setNextDayDenominations(existingClosingToday.nextDayDenominations as any);
+        } else {
+            // We could pre-fill with current breakdown, but user might want to adjust it explicitly.
+            // Let's pre-fill with the current denominations so they just subtract what they took.
+            setNextDayDenominations(denominations);
+        }
+        setNextDayModalOpen(true);
+    };
+
     const handleSaveClosing = async () => {
         if (!restaurantId || !userDoc) return;
 
@@ -381,6 +401,7 @@ export default function CashClosingPage() {
                 totalSales: summary.totalSales,
                 totalGuiaDiscount: summary.totalGuiaDiscount,
                 denominations,
+                nextDayDenominations,
                 expenses: expenses.map(e => ({ description: e.description, amount: e.amount, createdByUid: e.createdBy.uid, createdByName: e.createdBy.name })),
                 totalExpenses,
                 incomes: incomes.map(e => ({ description: e.description, amount: e.amount, createdByUid: e.createdBy.uid, createdByName: e.createdBy.name })),
@@ -413,6 +434,7 @@ export default function CashClosingPage() {
             alert("Error al guardar el cierre de caja.");
         } finally {
             setLoading(false);
+            setNextDayModalOpen(false);
         }
     };
 
@@ -942,7 +964,7 @@ export default function CashClosingPage() {
                                             variant="contained"
                                             size="large"
                                             fullWidth
-                                            onClick={handleSaveClosing}
+                                            onClick={handleOpenNextDayModal}
                                             disabled={loading || todayOrders.length === 0}
                                             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save />}
                                             sx={{
@@ -1424,6 +1446,79 @@ export default function CashClosingPage() {
                         </Grid>
                     )}
                 </DialogContent>
+            </Dialog>
+
+            {/* MODAL PARA DESGLOSE DEL DÍA SIGUIENTE */}
+            <Dialog
+                open={nextDayModalOpen}
+                onClose={() => !loading && setNextDayModalOpen(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: 4 } }}
+            >
+                <DialogTitle sx={{ bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                        <Typography variant="h6" fontWeight={900} color="primary.main">
+                            ¿Con cuánto va a empezar mañana?
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                            Desglose de efectivo para el siguiente turno.
+                        </Typography>
+                    </Box>
+                    {!loading && (
+                        <IconButton onClick={() => setNextDayModalOpen(false)} sx={{ bgcolor: 'white', border: '1px solid #e2e8f0', '&:hover': { bgcolor: '#f1f5f9' } }}>
+                            <CloseIcon />
+                        </IconButton>
+                    )}
+                </DialogTitle>
+                <DialogContent sx={{ p: 3 }}>
+                    <Grid container spacing={1.5}>
+                        {/* BILLETES */}
+                        <Grid size={{ xs: 12 }}><Typography variant="caption" fontWeight={900} color="text.secondary">BILLETES</Typography></Grid>
+                        {[100000, 50000, 20000, 10000, 5000, 2000].map(val => (
+                            <Grid size={{ xs: 12, sm: 6 }} key={val}>
+                                <DenominationInput
+                                    label={`$${val / 1000}k`}
+                                    value={nextDayDenominations[`bills${val}` as keyof typeof nextDayDenominations]}
+                                    onChange={(n) => setNextDayDenominations({ ...nextDayDenominations, [`bills${val}`]: n })}
+                                    disabled={loading}
+                                />
+                            </Grid>
+                        ))}
+
+                        {/* MONEDAS */}
+                        <Grid size={{ xs: 12 }} sx={{ mt: 1 }}><Typography variant="caption" fontWeight={900} color="text.secondary">MONEDAS</Typography></Grid>
+                        {[1000, 500, 200, 100, 50].map(val => (
+                            <Grid size={{ xs: 12, sm: 6 }} key={val}>
+                                <DenominationInput
+                                    label={`$${val}`}
+                                    value={nextDayDenominations[`coins${val}` as keyof typeof nextDayDenominations]}
+                                    onChange={(n) => setNextDayDenominations({ ...nextDayDenominations, [`coins${val}`]: n })}
+                                    disabled={loading}
+                                />
+                            </Grid>
+                        ))}
+                    </Grid>
+
+                    <Box sx={{ mt: 3, p: 2, bgcolor: "#f0fdf4", borderRadius: 3, textAlign: 'center' }}>
+                        <Typography variant="caption" fontWeight={700} color="success.main" display="block">TOTAL BASE MAÑANA</Typography>
+                        <Typography variant="h5" fontWeight={900} color="success.dark" sx={{ fontSize: { xs: "1.2rem", md: "1.5rem" } }}>
+                            {formatCOP(
+                                (nextDayDenominations.coins50 * 50) + (nextDayDenominations.coins100 * 100) + (nextDayDenominations.coins200 * 200) + (nextDayDenominations.coins500 * 500) + (nextDayDenominations.coins1000 * 1000) +
+                                (nextDayDenominations.bills2000 * 2000) + (nextDayDenominations.bills5000 * 5000) + (nextDayDenominations.bills10000 * 10000) +
+                                (nextDayDenominations.bills20000 * 20000) + (nextDayDenominations.bills50000 * 50000) + (nextDayDenominations.bills100000 * 100000)
+                            )}
+                        </Typography>
+                    </Box>
+                </DialogContent>
+                <DialogActions sx={{ p: 3, pt: 0 }}>
+                    <Button onClick={() => setNextDayModalOpen(false)} disabled={loading} color="inherit" sx={{ fontWeight: 700 }}>
+                        Cancelar
+                    </Button>
+                    <Button onClick={handleSaveClosing} disabled={loading} variant="contained" color="primary" sx={{ fontWeight: 900, px: 4 }}>
+                        {loading ? "Guardando..." : "Confirmar y Guardar"}
+                    </Button>
+                </DialogActions>
             </Dialog>
         </Box>
     );

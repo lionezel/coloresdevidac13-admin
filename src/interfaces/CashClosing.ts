@@ -54,5 +54,18 @@ export interface CashClosing {
     }[];
     totalIncomes?: number;
     notes?: string;
+    nextDayDenominations?: {
+        coins50?: number;
+        coins100?: number;
+        coins200?: number;
+        coins500?: number;
+        coins1000?: number;
+        bills2000?: number;
+        bills5000?: number;
+        bills10000?: number;
+        bills20000?: number;
+        bills50000?: number;
+        bills100000?: number;
+    };
     createdAt: Timestamp;
 }
