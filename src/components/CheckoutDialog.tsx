@@ -228,7 +228,8 @@ export default function CheckoutDialog({
     const copChangeFromUSD = useMemo(() => {
         if (cashCurrency !== "USD" || usdReceived === "" || !usdExchangeRate) return 0;
         const paid = Number(usdReceived) * Number(usdExchangeRate);
-        return paid > totalGeneral ? paid - totalGeneral : 0;
+        // La devuelta en COP siempre se redondea hacia arriba (a favor del cliente)
+        return paid > totalGeneral ? Math.ceil(paid - totalGeneral) : 0;
     }, [cashCurrency, usdReceived, usdExchangeRate, totalGeneral]);
 
     const isShortOnUSD =
@@ -283,6 +284,8 @@ export default function CheckoutDialog({
                     usdReceived: paymentMethod === "efectivo" && cashCurrency === "USD" ? Number(usdReceived) : null,
                     usdExchangeRate: paymentMethod === "efectivo" && cashCurrency === "USD" ? Number(usdExchangeRate) : null,
                     changeInCOP: paymentMethod === "efectivo" && cashCurrency === "USD" ? copChangeFromUSD : null,
+                    // Bruto COP que entró en dólares (usdReceived × tasa). Para cierre de caja: copReceivedFromUSD - changeInCOP = orden.total
+                    copReceivedFromUSD: paymentMethod === "efectivo" && cashCurrency === "USD" ? Number(usdReceived) * Number(usdExchangeRate) : null,
                 };
 
                 Object.keys(payload).forEach(key => {

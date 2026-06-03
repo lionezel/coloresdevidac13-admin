@@ -379,10 +379,28 @@ export default function Dashboard() {
 
         <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
           <Metric
+            title="COP Bruto cobrado en USD"
+            value={formatCOP(analytics.totalCopFromUSD)}
+            icon={<SwapHoriz />}
+            color="#01579b"
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+          <Metric
             title="Cambio Devuelto en COP"
             value={formatCOP(analytics.totalChangeInCOP)}
             icon={<SwapHoriz />}
             color="#7b1fa2"
+          />
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }}>
+          <Metric
+            title="Neto COP de Dólares"
+            value={formatCOP(analytics.totalCopFromUSD - analytics.totalChangeInCOP)}
+            icon={<AttachMoney />}
+            color="#2e7d32"
           />
         </Grid>
       </Grid>

@@ -33,6 +33,7 @@ import {
     Edit,
     History,
     Replay,
+    Undo as UndoIcon,
 } from "@mui/icons-material";
 import { useRef } from "react";
 import { useReactToPrint } from "react-to-print";
@@ -219,6 +220,18 @@ export default function BillingPage() {
         }
     };
 
+    const handleReturnToOrders = async (order: Order) => {
+        if (!restaurantId || !order.id) return;
+        if (!window.confirm(`¿Devolver la orden "${order.name}" a la cola de órdenes activas?`)) return;
+        try {
+            const orderRef = doc(db, "restaurants", restaurantId, "orders", order.id);
+            await updateDoc(orderRef, { state: "pendiente" });
+        } catch (err) {
+            console.error("Error devolviendo la orden:", err);
+            alert("Error al devolver la orden.");
+        }
+    };
+
     const handleReopenOrder = async (order: Order) => {
         if (!restaurantId || !order.id) return;
         if (!window.confirm(`¿Deseas reabrir la orden "${order.name}" para re-facturarla?`)) return;
@@ -299,6 +312,7 @@ export default function BillingPage() {
                                 onCheckout={handleOpenCheckout}
                                 onDelete={deleteItem}
                                 onEdit={(id) => navigate(`/${restaurantId}/edit-order/${id}`)}
+                                onReturnToOrders={handleReturnToOrders}
                             />
                         </Grid>
                     ))
@@ -515,11 +529,13 @@ function BillingCard({
     onCheckout,
     onDelete,
     onEdit,
+    onReturnToOrders,
 }: {
     order: Order;
     onCheckout: (o: Order) => void;
     onDelete: (id: string) => void;
     onEdit: (id: string) => void;
+    onReturnToOrders: (o: Order) => void;
 }) {
     const componentRef = useRef<HTMLDivElement>(null);
     const handlePrint = useReactToPrint({
@@ -720,6 +736,17 @@ function BillingCard({
                                 sx={{ borderRadius: 2.5, p: 1.5, border: "1.5px solid", borderColor: "primary.light" }}
                             >
                                 <Edit fontSize="small" />
+                            </IconButton>
+                        </MuiTooltip>
+
+                        <MuiTooltip title="Devolver a Órdenes" arrow>
+                            <IconButton
+                                color="warning"
+                                size="small"
+                                onClick={() => onReturnToOrders(order)}
+                                sx={{ borderRadius: 2.5, p: 1.5, border: "1.5px solid", borderColor: "warning.light" }}
+                            >
+                                <UndoIcon fontSize="small" />
                             </IconButton>
                         </MuiTooltip>
 

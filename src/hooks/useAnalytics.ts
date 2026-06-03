@@ -143,6 +143,7 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
     let totalTips = 0;
     let totalUsdReceived = 0;
     let totalChangeInCOP = 0;
+    let totalCopFromUSD = 0; // Bruto COP que entró por pagos en dólares (usdReceived × tasa)
 
     /* 🔹 Revenue chart & Product analysis */
     const revenueMap: Record<string, number> = {};
@@ -156,6 +157,7 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
       totalTips += tip;
       totalUsdReceived += Number((order as any).usdReceived || 0);
       totalChangeInCOP += Number((order as any).changeInCOP || 0);
+      totalCopFromUSD += Number((order as any).copReceivedFromUSD || 0);
 
       // No aplicar retención del 5% a tarjetas
       const netTotal = total;
@@ -266,6 +268,7 @@ export const useAnalytics = (orders: Order[], period: Period, customDate?: Date)
       totalGuiaDiscount,
       totalUsdReceived,
       totalChangeInCOP,
+      totalCopFromUSD,
     };
   }, [orders, period, customDate]);
 };

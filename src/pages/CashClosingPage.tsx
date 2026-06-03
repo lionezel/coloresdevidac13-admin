@@ -327,6 +327,16 @@ export default function CashClosingPage() {
         return totals;
     }, [todayOrders]);
 
+    // Métricas de cobros en dólares del día
+    const usdMetrics = useMemo(() => {
+        const usdOrders = todayOrders.filter(o => (o as any).cashCurrency === "USD");
+        const copReceivedFromUSD = usdOrders.reduce((s, o) => s + Number((o as any).copReceivedFromUSD || 0), 0);
+        const changeInCOP = usdOrders.reduce((s, o) => s + Number((o as any).changeInCOP || 0), 0);
+        const usdReceived = usdOrders.reduce((s, o) => s + Number((o as any).usdReceived || 0), 0);
+        const netCopFromUSD = copReceivedFromUSD - changeInCOP; // debería = suma de order.total de esas órdenes
+        return { count: usdOrders.length, copReceivedFromUSD, changeInCOP, usdReceived, netCopFromUSD };
+    }, [todayOrders]);
+
     const expectedCash = useMemo(() =>
         summary.efectivo + Number(openingBalance) - totalExpenses + totalIncomes,
         [summary.efectivo, openingBalance, totalExpenses, totalIncomes]);
@@ -489,6 +499,44 @@ export default function CashClosingPage() {
                                     <SummaryCard title="Venta Neta (En Caja)" value={summary.totalSales} icon={<AttachMoney />} color="#000" isTotal />
                                 </Grid>
                             </Grid>
+
+                            {/* 💵 BLOQUE DE COBROS EN DÓLARES */}
+                            {usdMetrics.count > 0 && (
+                                <Card sx={{ mt: 2, borderRadius: 3, border: "2px solid #0288d1", bgcolor: "#e3f2fd" }}>
+                                    <CardContent sx={{ p: 2.5 }}>
+                                        <Typography variant="subtitle1" fontWeight={900} color="#0277bd" mb={1.5} display="flex" alignItems="center" gap={1}>
+                                            💵 Cobros en Dólares ({usdMetrics.count} órden{usdMetrics.count !== 1 ? "es" : ""})
+                                        </Typography>
+                                        <Grid container spacing={1.5}>
+                                            <Grid size={{ xs: 12, sm: 4 }}>
+                                                <Box sx={{ bgcolor: "#fff", borderRadius: 2, p: 1.5, textAlign: "center" }}>
+                                                    <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">USD Recibidos</Typography>
+                                                    <Typography variant="h6" fontWeight={900} color="#0288d1">${usdMetrics.usdReceived.toFixed(2)} USD</Typography>
+                                                </Box>
+                                            </Grid>
+                                            <Grid size={{ xs: 12, sm: 4 }}>
+                                                <Box sx={{ bgcolor: "#fff", borderRadius: 2, p: 1.5, textAlign: "center" }}>
+                                                    <Typography variant="caption" color="text.secondary" fontWeight={700} display="block">COP Bruto Cobrado</Typography>
+                                                    <Typography variant="h6" fontWeight={900} color="#01579b">{formatCOP(usdMetrics.copReceivedFromUSD)}</Typography>
+                                                </Box>
+                                            </Grid>
+                                            <Grid size={{ xs: 12, sm: 4 }}>
+                                                <Box sx={{ bgcolor: "#fce4ec", borderRadius: 2, p: 1.5, textAlign: "center", border: "1px solid #f48fb1" }}>
+                                                    <Typography variant="caption" color="error.main" fontWeight={700} display="block">− Devuelta en COP</Typography>
+                                                    <Typography variant="h6" fontWeight={900} color="error.main">{formatCOP(usdMetrics.changeInCOP)}</Typography>
+                                                </Box>
+                                            </Grid>
+                                            <Grid size={{ xs: 12 }}>
+                                                <Divider sx={{ my: 0.5 }} />
+                                                <Stack direction="row" justifyContent="space-between" alignItems="center" px={0.5}>
+                                                    <Typography variant="body2" fontWeight={800} color="text.secondary">Neto en caja por dólares:</Typography>
+                                                    <Typography variant="h6" fontWeight={900} color="success.dark">{formatCOP(usdMetrics.netCopFromUSD)}</Typography>
+                                                </Stack>
+                                            </Grid>
+                                        </Grid>
+                                    </CardContent>
+                                </Card>
+                            )}
 
                             <Card sx={{ mt: 3, borderRadius: 4, border: "1px solid #e2e8f0" }}>
                                 <CardContent>
