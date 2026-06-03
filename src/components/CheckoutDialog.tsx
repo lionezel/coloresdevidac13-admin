@@ -47,7 +47,7 @@ export default function CheckoutDialog({
     const [paymentMethod, setPaymentMethod] = useState<string>("");
     const [cashReceived, setCashReceived] = useState<number | "">("");
     const [cashCurrency, setCashCurrency] = useState<"COP" | "USD">("COP");
-    const [usdExchangeRate, setUsdExchangeRate] = useState<number | "">(4200);
+    const [usdExchangeRate, setUsdExchangeRate] = useState<number | "">(3000);
     const [usdReceived, setUsdReceived] = useState<number | "">("");
 
     // Plan Guía
@@ -106,7 +106,7 @@ export default function CheckoutDialog({
 
     const discountAmount = useMemo(() => {
         let baseDiscount = 0;
-        
+
         // Sum individual product discounts
         localProducts.forEach(p => {
             if (p.discount && p.discount > 0) {
@@ -153,9 +153,9 @@ export default function CheckoutDialog({
             // No pre-llenamos el método de pago para obligar al usuario a seleccionarlo
             setPaymentMethod("");
             // Deep copy and group objects to avoid mutation and unify lines for billing
-            setLocalProducts(groupProducts(order.products).map(p => ({ 
-                ...p, 
-                discountMode: p.discountMode || "percentage" 
+            setLocalProducts(groupProducts(order.products).map(p => ({
+                ...p,
+                discountMode: p.discountMode || "percentage"
             })));
         } else {
             setLocalProducts([]);

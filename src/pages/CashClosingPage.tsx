@@ -815,52 +815,21 @@ export default function CashClosingPage() {
 
                                     <Stack spacing={3}>
                                         <TextField
-                                            label="Efectivo Anterior (Ayer)"
+                                            label="Base de Apertura"
                                             type="number"
                                             fullWidth
                                             variant="outlined"
                                             value={previousDayCash || ""}
                                             onChange={(e) => setPreviousDayCash(Number(e.target.value))}
-                                            disabled={false}
                                             InputProps={{
-                                                startAdornment: <AttachMoney sx={{ color: "text.disabled", mr: 1 }} />,
+                                                startAdornment: <AttachMoney sx={{ color: "success.main", mr: 1 }} />,
                                             }}
-                                            helperText="Efectivo del último cierre."
-                                        />
-
-                                        <TextField
-                                            label="Retiro (Lo que me llevo de la caja)"
-                                            type="number"
-                                            fullWidth
-                                            variant="outlined"
-                                            value={withdrawnAmount || ""}
-                                            onChange={(e) => setWithdrawnAmount(Number(e.target.value))}
-                                            disabled={false}
-                                            InputProps={{
-                                                startAdornment: <AttachMoney sx={{ color: "error.main", mr: 1 }} />,
+                                            helperText="Efectivo con el que inicia la caja hoy."
+                                            sx={{
+                                                "& .MuiOutlinedInput-root": { borderRadius: 2 },
+                                                "& .MuiOutlinedInput-notchedOutline": { borderColor: "#a7f3d0" },
                                             }}
-                                            helperText="Le descontaremos esto al efectivo anterior."
-                                            sx={{ mt: 2 }}
                                         />
-
-                                        <TextField
-                                            label="¿Por qué o para qué se retiró?"
-                                            fullWidth
-                                            size="small"
-                                            variant="outlined"
-                                            value={openingBalanceDesc || ""}
-                                            onChange={(e) => setOpeningBalanceDesc(e.target.value)}
-                                            disabled={false}
-                                            helperText="Especifique el motivo del retiro de hoy."
-                                            sx={{ mt: 2 }}
-                                        />
-                                        
-                                        <Box sx={{ p: 2, mt: 2, bgcolor: "#f0fdf4", borderRadius: 2 }}>
-                                            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                                <Typography variant="caption" color="success.dark" fontWeight={800}>BASE DE APERTURA HOY:</Typography>
-                                                <Typography variant="h6" fontWeight={900} color="success.dark">{formatCOP(openingBalance)}</Typography>
-                                            </Stack>
-                                        </Box>
 
                                         <Grid container spacing={2} alignItems="center" sx={{ mt: 1 }}>
                                             <Grid size={{ xs: 6 }}>
