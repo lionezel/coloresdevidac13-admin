@@ -177,7 +177,9 @@ export default function CashClosingPage() {
     };
 
     const actualTransfer = useMemo(() => evaluateMath(actualTransferStr), [actualTransferStr]);
-    const actualCard = useMemo(() => evaluateMath(actualCardStr), [actualCardStr]);
+    const actualCardGross = useMemo(() => evaluateMath(actualCardStr), [actualCardStr]);
+    const cardCommission = useMemo(() => actualCardGross * 0.05, [actualCardGross]);
+    const actualCardNet = useMemo(() => actualCardGross * 0.95, [actualCardGross]);
 
     // Guardar en localStorage para que no se pierdan los datos si se recarga (excepto bases de efectivo por DB)
     React.useEffect(() => {
@@ -470,7 +472,7 @@ export default function CashClosingPage() {
     const difference = useMemo(() => actualCash - expectedCash, [actualCash, expectedCash]);
 
     const transferDifference = useMemo(() => actualTransfer - summary.transferencia, [actualTransfer, summary.transferencia]);
-    const cardDifference = useMemo(() => actualCard - summary.tarjeta, [actualCard, summary.tarjeta]);
+    const cardDifference = useMemo(() => actualCardNet - summary.tarjeta, [actualCardNet, summary.tarjeta]);
 
     const handleOpenNextDayModal = () => {
         if (existingClosingToday && existingClosingToday.nextDayDenominations) {
@@ -505,7 +507,10 @@ export default function CashClosingPage() {
                 difference: difference,
                 actualTransfer: Number(actualTransfer),
                 transferDifference: transferDifference,
-                actualCard: Number(actualCard),
+                actualCard: Number(actualCardGross),
+                actualCardGross: Number(actualCardGross),
+                cardCommission: Number(cardCommission),
+                actualCardNet: Number(actualCardNet),
                 cardDifference: cardDifference,
                 totals: {
                     efectivo: summary.efectivo,
@@ -966,7 +971,7 @@ export default function CashClosingPage() {
                                             </Grid>
                                             <Grid size={{ xs: 6 }}>
                                                 <TextField
-                                                    label="Tarjeta Real (Suma ej. 20000+10000)"
+                                                    label="Tarjeta Real Vouchers (Bruto)"
                                                     type="text"
                                                     fullWidth
                                                     size="small"
@@ -977,8 +982,20 @@ export default function CashClosingPage() {
                                                     InputProps={{
                                                         startAdornment: <CreditCard sx={{ fontSize: 18, color: "text.disabled", mr: 1 }} />,
                                                     }}
-                                                    helperText={actualCardStr && actualCard !== 0 ? `Total: ${formatCOP(actualCard)}` : ""}
                                                 />
+                                                {actualCardStr && actualCardGross !== 0 && (
+                                                    <Box sx={{ mt: 0.5, pl: 0.5 }}>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.7rem', fontWeight: 600 }}>
+                                                            Bruto: {formatCOP(actualCardGross)}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="error.main" sx={{ display: 'block', fontSize: '0.7rem', fontWeight: 700 }}>
+                                                            Com. 5%: -{formatCOP(cardCommission)}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="primary.main" sx={{ display: 'block', fontSize: '0.7rem', fontWeight: 800 }}>
+                                                            Neto: {formatCOP(actualCardNet)}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
                                             </Grid>
                                         </Grid>
 
@@ -1076,8 +1093,23 @@ export default function CashClosingPage() {
                                             </Typography>
                                         </Stack>
 
-                                        <Stack direction="row" justifyContent="space-between">
-                                            <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Tarjeta:</Typography>
+                                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary" fontWeight={600}>Diferencia Tarjeta:</Typography>
+                                                {actualCardGross > 0 && (
+                                                    <Box sx={{ mt: 0.25 }}>
+                                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                                                            Bruto: {formatCOP(actualCardGross)}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="error.main" sx={{ display: 'block', fontSize: '0.65rem', fontWeight: 700 }}>
+                                                            Com. 5%: -{formatCOP(cardCommission)}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="primary.main" sx={{ display: 'block', fontSize: '0.65rem', fontWeight: 800 }}>
+                                                            Neto: {formatCOP(actualCardNet)}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
+                                            </Box>
                                             <Typography variant="caption" fontWeight={900} color={cardDifference === 0 ? "text.secondary" : cardDifference > 0 ? "success.main" : "error.main"}>
                                                 {formatCOP(cardDifference)}
                                             </Typography>
@@ -1271,7 +1303,16 @@ export default function CashClosingPage() {
                                                             {formatCOP(c.nextDayOpeningBalance ?? calculateDenominationsTotal(c.nextDayDenominations))}
                                                         </TableCell>
                                                         <TableCell align="right" sx={{ fontWeight: 500 }}>{formatCOP(c.totals?.efectivo || 0)}</TableCell>
-                                                        <TableCell align="right" sx={{ fontWeight: 500 }}>{formatCOP(c.totals?.tarjeta || 0)}</TableCell>
+                                                        <TableCell align="right">
+                                                            <Typography variant="body2" fontWeight={700}>
+                                                                {formatCOP((c.actualCardGross ?? c.actualCard ?? c.totals?.tarjeta) || 0)}
+                                                            </Typography>
+                                                            {(c.actualCardGross || c.actualCard || c.totals?.tarjeta) ? (
+                                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                                                                    Neto (-5%): {formatCOP((c.actualCardNet ?? ((c.actualCardGross ?? c.actualCard ?? c.totals?.tarjeta ?? 0) * 0.95)) || 0)}
+                                                                </Typography>
+                                                            ) : null}
+                                                        </TableCell>
                                                         <TableCell align="right" sx={{ fontWeight: 500 }}>{formatCOP(c.totals?.transferencia || 0)}</TableCell>
                                                         <TableCell align="right" sx={{ fontWeight: 700 }}>{formatCOP(c.totalSales)}</TableCell>
                                                         <TableCell align="right" sx={{ fontWeight: 1000, color: "primary.main" }}>
@@ -1550,18 +1591,31 @@ export default function CashClosingPage() {
                                             </Box>
 
                                             <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: (selectedClosing.cardDifference || 0) < 0 ? '#fef2f2' : (selectedClosing.cardDifference || 0) > 0 ? '#f0fdf4' : '#f8fafc' }}>
-                                                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                                    <Box>
-                                                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">Tarjeta Sistema</Typography>
-                                                        <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.totals?.tarjeta || 0)}</Typography>
-                                                    </Box>
-                                                    <Box sx={{ textAlign: 'right' }}>
-                                                        <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">Diferencia Tarjeta</Typography>
-                                                        <Typography variant="subtitle2" fontWeight={900} color={(selectedClosing.cardDifference || 0) < 0 ? 'error.main' : (selectedClosing.cardDifference || 0) > 0 ? 'success.main' : 'text.primary'}>
-                                                            {formatCOP(selectedClosing.cardDifference || 0)}
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
+                                                 <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                                     <Box>
+                                                         <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">Tarjeta Sistema</Typography>
+                                                         <Typography variant="body2" fontWeight={800}>{formatCOP(selectedClosing.totals?.tarjeta || 0)}</Typography>
+                                                         {(selectedClosing.actualCardGross || selectedClosing.actualCard) && (
+                                                             <Box sx={{ mt: 0.5 }}>
+                                                                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.65rem' }}>
+                                                                     Bruto: {formatCOP(selectedClosing.actualCardGross ?? selectedClosing.actualCard ?? 0)}
+                                                                 </Typography>
+                                                                 <Typography variant="caption" color="error.main" sx={{ display: 'block', fontSize: '0.65rem', fontWeight: 700 }}>
+                                                                     Com. 5%: -{formatCOP(selectedClosing.cardCommission ?? ((selectedClosing.actualCardGross ?? selectedClosing.actualCard ?? 0) * 0.05))}
+                                                                 </Typography>
+                                                                 <Typography variant="caption" color="primary.main" sx={{ display: 'block', fontSize: '0.65rem', fontWeight: 800 }}>
+                                                                     Neto: {formatCOP(selectedClosing.actualCardNet ?? ((selectedClosing.actualCardGross ?? selectedClosing.actualCard ?? 0) * 0.95))}
+                                                                 </Typography>
+                                                             </Box>
+                                                         )}
+                                                     </Box>
+                                                     <Box sx={{ textAlign: 'right' }}>
+                                                         <Typography variant="caption" fontWeight={700} color="text.secondary" display="block">Diferencia (Neto)</Typography>
+                                                         <Typography variant="subtitle2" fontWeight={900} color={(selectedClosing.cardDifference || 0) < 0 ? 'error.main' : (selectedClosing.cardDifference || 0) > 0 ? 'success.main' : 'text.primary'}>
+                                                             {formatCOP(selectedClosing.cardDifference || 0)}
+                                                         </Typography>
+                                                     </Box>
+                                                 </Stack>
                                             </Box>
 
                                             <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: (selectedClosing.transferDifference || 0) < 0 ? '#fef2f2' : (selectedClosing.transferDifference || 0) > 0 ? '#f0fdf4' : '#f8fafc' }}>

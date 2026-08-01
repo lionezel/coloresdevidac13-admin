@@ -17,6 +17,9 @@ export interface CashClosing {
     actualTransfer?: number;
     transferDifference?: number;
     actualCard?: number;
+    actualCardGross?: number;
+    cardCommission?: number;
+    actualCardNet?: number;
     cardDifference?: number;
     totals: {
         efectivo: number;
