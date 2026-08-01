@@ -67,5 +67,6 @@ export interface CashClosing {
         bills50000?: number;
         bills100000?: number;
     };
+    nextDayOpeningBalance?: number;
     createdAt: Timestamp;
 }
