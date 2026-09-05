@@ -1154,7 +1154,7 @@ export default function CashClosingPage() {
                                             size="large"
                                             fullWidth
                                             onClick={handleOpenNextDayModal}
-                                            disabled={loading || todayOrders.length === 0}
+                                            disabled={loading}
                                             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save />}
                                             sx={{
                                                 py: 2,
@@ -1173,8 +1173,8 @@ export default function CashClosingPage() {
                                             </Typography>
                                         )}
                                         {todayOrders.length === 0 && !isClosedToday && (
-                                            <Typography variant="caption" color="error" textAlign="center" fontWeight={600}>
-                                                No se puede cerrar sin ventas registradas.
+                                            <Typography variant="caption" color="text.secondary" textAlign="center" fontWeight={600} display="block" mt={1}>
+                                                Sin ventas registradas en esta fecha (cierre en $0).
                                             </Typography>
                                         )}
                                     </Stack>
