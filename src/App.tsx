@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "./hooks/useAuth";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import SidebarLayout from "./layouts/SidebarLayout";
 import { GlobalColor, GlobalSecondaryColor } from "./global/GlobalColor";
@@ -35,6 +36,26 @@ const theme = createTheme({
   },
 });
 
+const RESTAURANT_ID = "IOjtPfRh1PQ6lnxDeZdJ";
+
+// Redirige según el rol del usuario al entrar a la raíz
+function RootRedirect() {
+  const { user, userDoc, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+
+  const isAdmin = userDoc?.isAdmin === true || userDoc?.role === "admin" || user.uid === "THtaTpKF7mOcSS5VbJtGtkZu9z82";
+  if (isAdmin) return <Navigate to={`/${RESTAURANT_ID}/dashboard`} replace />;
+
+  // No-admin: ir a la primera página permitida
+  const firstPage = userDoc?.permissions?.allowedPages?.[0];
+  if (firstPage) return <Navigate to={`/${RESTAURANT_ID}/${firstPage}`} replace />;
+
+  const role = userDoc?.role;
+  if (role === "cajero") return <Navigate to={`/${RESTAURANT_ID}/billing`} replace />;
+  return <Navigate to={`/${RESTAURANT_ID}/orders`} replace />;
+}
+
 export default function App() {
   return (
     <ThemeProvider theme={theme}>
@@ -46,7 +67,7 @@ export default function App() {
 
             {/* Rutas Protegidas - Solo usuarios logueados */}
             <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Navigate to="/IOjtPfRh1PQ6lnxDeZdJ/dashboard" replace />} />
+              <Route path="/" element={<RootRedirect />} />
               <Route path="settings" element={<SettingsPage />} />
 
               <Route path="/:restaurantId" element={<SidebarLayout />}>

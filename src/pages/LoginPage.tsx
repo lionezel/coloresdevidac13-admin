@@ -24,7 +24,7 @@ import { useAuth } from "../hooks/useAuth";
 
 export const LoginPage = () => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, userDoc } = useAuth();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -33,10 +33,28 @@ export const LoginPage = () => {
     const [error, setError] = useState("");
 
     useEffect(() => {
-        if (user) {
-            navigate("/IOjtPfRh1PQ6lnxDeZdJ/dashboard");
+        if (user && userDoc) {
+            const RESTAURANT_ID = "IOjtPfRh1PQ6lnxDeZdJ";
+            const isAdmin = userDoc.isAdmin === true || userDoc.role === "admin" || user.uid === "THtaTpKF7mOcSS5VbJtGtkZu9z82";
+
+            if (isAdmin) {
+                navigate(`/${RESTAURANT_ID}/dashboard`);
+                return;
+            }
+
+            // Buscar la primera página en la que tiene permisos
+            const allowedPages: string[] = userDoc?.permissions?.allowedPages ?? [];
+            if (allowedPages.length > 0) {
+                navigate(`/${RESTAURANT_ID}/${allowedPages[0]}`);
+                return;
+            }
+
+            // Fallback por rol si no tiene allowedPages configuradas
+            const role = userDoc.role;
+            if (role === "cajero") navigate(`/${RESTAURANT_ID}/billing`);
+            else navigate(`/${RESTAURANT_ID}/orders`);
         }
-    }, [user, navigate]);
+    }, [user, userDoc, navigate]);
 
     const handleLogin = async () => {
         setError("");
@@ -48,8 +66,17 @@ export const LoginPage = () => {
         try {
             setLoading(true);
             await signInWithEmailAndPassword(auth, email, password);
-        } catch (err) {
-            setError("Usuario o contraseña incorrectos");
+        } catch (err: any) {
+            console.error("Login error:", err.code, err.message);
+            if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
+                setError("Usuario o contraseña incorrectos");
+            } else if (err.code === "auth/too-many-requests") {
+                setError("Demasiados intentos. Espera un momento e intenta de nuevo.");
+            } else if (err.code === "auth/network-request-failed") {
+                setError("Error de conexión. Revisa tu internet.");
+            } else {
+                setError(`Error: ${err.message}`);
+            }
             setLoading(false);
         }
     };
