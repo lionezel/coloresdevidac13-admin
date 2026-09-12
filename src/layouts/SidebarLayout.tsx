@@ -1,9 +1,12 @@
-import { Box, Toolbar, AppBar, IconButton, Typography, useTheme, useMediaQuery, Avatar, Chip, Stack } from "@mui/material";
+import { Box, Toolbar, AppBar, IconButton, Typography, useTheme, useMediaQuery, Avatar, Chip, Stack, Tooltip, Divider } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import { Outlet } from "react-router-dom";
+import LogoutIcon from "@mui/icons-material/Logout";
+import { Outlet, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import Sidebar from "../components/Sidebar";
 import { useAuth } from "../hooks/useAuth";
+import { auth } from "../firebase/config";
+import { signOut } from "firebase/auth";
 
 const drawerWidth = 240;
 
@@ -27,6 +30,12 @@ export default function SidebarLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(true);
   const { userDoc } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    navigate("/login");
+  };
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -115,6 +124,26 @@ export default function SidebarLayout() {
               >
                 {avatarLetter}
               </Avatar>
+
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.5, my: 1 }} />
+
+              {/* Cerrar sesión */}
+              <Tooltip title="Cerrar sesión" arrow>
+                <IconButton
+                  onClick={handleLogout}
+                  size="small"
+                  sx={{
+                    color: "#ef4444",
+                    bgcolor: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    "&:hover": { bgcolor: "#fee2e2" },
+                    width: 32,
+                    height: 32,
+                  }}
+                >
+                  <LogoutIcon sx={{ fontSize: "1rem" }} />
+                </IconButton>
+              </Tooltip>
             </Stack>
           )}
         </Toolbar>

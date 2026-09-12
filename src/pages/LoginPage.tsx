@@ -34,7 +34,7 @@ export const LoginPage = () => {
 
     useEffect(() => {
         if (user) {
-            navigate("/");
+            navigate("/IOjtPfRh1PQ6lnxDeZdJ/dashboard");
         }
     }, [user, navigate]);
 

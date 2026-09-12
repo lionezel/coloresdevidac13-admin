@@ -78,7 +78,7 @@ export const ProtectedRoute = ({
         // Si tiene allowedRoles o estamos en una subpágina de restaurante y no se permitió arriba, redirigir
         if (allowedRoles || (pathParts.length >= 2)) {
              console.warn(`Acceso denegado a: ${window.location.pathname}. El rol '${userDoc?.role}' no tiene permiso.`);
-             return <Navigate to="/" replace />;
+             return <Navigate to="/login" replace />;
         }
     }
 

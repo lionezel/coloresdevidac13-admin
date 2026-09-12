@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
 import SidebarLayout from "./layouts/SidebarLayout";
 import { GlobalColor, GlobalSecondaryColor } from "./global/GlobalColor";
@@ -46,7 +46,7 @@ export default function App() {
 
             {/* Rutas Protegidas - Solo usuarios logueados */}
             <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<RestaurantsPage />} />
+              <Route path="/" element={<Navigate to="/IOjtPfRh1PQ6lnxDeZdJ/dashboard" replace />} />
               <Route path="settings" element={<SettingsPage />} />
 
               <Route path="/:restaurantId" element={<SidebarLayout />}>
