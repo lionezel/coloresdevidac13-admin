@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "adminwebs",
+    "site": "coloresdevida-admin",
     "public": "build",
     "ignore": [
       "firebase.json",
