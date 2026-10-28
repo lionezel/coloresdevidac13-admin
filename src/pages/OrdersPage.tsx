@@ -89,7 +89,7 @@ const stopDelaySound = () => {
 export default function OrdersPage() {
   const { restaurantId } = useParams<{ restaurantId: string }>();
   const navigate = useNavigate();
-  const { userDoc, canCreate, canDelete } = useAuth();
+  const { userDoc, canCreate, canEdit, canDelete } = useAuth();
   const userRole = userDoc?.role?.toLowerCase();
   const [tabValue, setTabValue] = useState(0);
   const previousOrdersCount = useRef(0);
@@ -343,6 +343,8 @@ export default function OrdersPage() {
                 order={order}
                 allProducts={allProducts}
                 userRole={userRole}
+                canCreate={canCreate}
+                canEdit={canEdit}
                 canDelete={canDelete}
                 onUpdateStatus={handleChangeStatus}
                 onUpdateOrder={updateItem}
@@ -363,10 +365,12 @@ export default function OrdersPage() {
    📦 Tarjeta de Orden (Refinada)
  ======================= */
 
-function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, onComplete, onDelete, onEdit, onUpdateOrder, isDrinkFn }: {
+function OrderCard({ order, allProducts, userRole, canCreate, canEdit, canDelete, onUpdateStatus, onComplete, onDelete, onEdit, onUpdateOrder, isDrinkFn }: {
   order: Order;
   allProducts: Product[];
   userRole?: string;
+  canCreate?: boolean;
+  canEdit?: boolean;
   canDelete?: boolean;
   onUpdateStatus: (id: string, s: OrderStatus) => void;
   onComplete: (o: Order) => void;
@@ -387,19 +391,17 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
   }, [order.products]);
 
   const { foodItems, drinkItems } = useMemo(() => {
-    const food: typeof order.products = [];
-    const drinks: typeof order.products = [];
+    const food: { product: typeof order.products[0]; originalIndex: number }[] = [];
+    const drinks: { product: typeof order.products[0]; originalIndex: number }[] = [];
 
     // Si la orden está en un estado activo, solo mostramos los productos pendientes (no completados)
     // Esto cumple el requisito: "que solo se vea el producto que agregaron"
     const isActive = !["completada", "cancelada"].includes(order.state) &&
       (!["porCobrar", "listo / caja"].includes(order.state) || order.products.some(p => !p.completed));
-    const visibleProducts = isActive ? order.products.filter(p => !p.completed) : order.products;
 
-    visibleProducts.forEach(p => {
-      // Usa el mapa de categorías para determinar el tipo.
-      // Primero la categoría guardada en el producto de la orden,
-      // luego la del lookup en la colección de productos.
+    order.products.forEach((p, idx) => {
+      if (isActive && p.completed) return;
+
       const storedCategory = p.category;
       const productDef = allProducts.find(prod => prod.id === p.productId);
       const lookupCategory = productDef?.category;
@@ -409,17 +411,17 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
         isDrinkFn(lookupCategory);
 
       if (isDrinkItem) {
-        drinks.push(p);
+        drinks.push({ product: p, originalIndex: idx });
       } else {
-        food.push(p);
+        food.push({ product: p, originalIndex: idx });
       }
     });
 
     return { foodItems: food, drinkItems: drinks };
   }, [order.products, allProducts, order.state, isDrinkFn]);
 
-  const renderProduct = (p: typeof order.products[0], idx: number) => (
-    <Box key={`${p.productId}-${idx}`}>
+  const renderProduct = (p: typeof order.products[0], originalIdx: number) => (
+    <Box key={`${p.productId}-${originalIdx}`}>
       <Stack direction="row" spacing={2} alignItems="center">
         <Box
           sx={{
@@ -471,7 +473,7 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
           onClick={(e) => {
             e.stopPropagation();
             const newProducts = [...order.products];
-            newProducts[idx] = { ...newProducts[idx], completed: !newProducts[idx].completed };
+            newProducts[originalIdx] = { ...newProducts[originalIdx], completed: !newProducts[originalIdx].completed };
             onUpdateOrder(order.id!, { products: newProducts });
           }}
           sx={{
@@ -615,10 +617,7 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
                 COMIDA ({foodItems.length})
               </Typography>
               <Stack spacing={2.5} mb={foodItems.length > 0 && drinkItems.length > 0 ? 4 : 2}>
-                {foodItems.map((p) => {
-                  const idx = order.products.indexOf(p);
-                  return renderProduct(p, idx);
-                })}
+                {foodItems.map((item) => renderProduct(item.product, item.originalIndex))}
               </Stack>
             </>
           )}
@@ -629,10 +628,7 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
                 BEBIDAS ({drinkItems.length})
               </Typography>
               <Stack spacing={2.5} mb={2}>
-                {drinkItems.map((p) => {
-                  const idx = order.products.indexOf(p);
-                  return renderProduct(p, idx);
-                })}
+                {drinkItems.map((item) => renderProduct(item.product, item.originalIndex))}
               </Stack>
             </>
           )}
@@ -661,20 +657,22 @@ function OrderCard({ order, allProducts, userRole, canDelete, onUpdateStatus, on
               Listo / A Caja
             </Button>
 
-            <MuiTooltip title="Agregar Productos / Editar" arrow>
-              <IconButton
-                color="primary"
-                onClick={() => onEdit(order.id!)}
-                sx={{
-                  borderRadius: 2.5,
-                  p: 1.5,
-                  border: "1.5px solid",
-                  borderColor: "primary.light"
-                }}
-              >
-                <Edit fontSize="small" />
-              </IconButton>
-            </MuiTooltip>
+            {canEdit && (
+              <MuiTooltip title="Agregar Productos / Editar" arrow>
+                <IconButton
+                  color="primary"
+                  onClick={() => onEdit(order.id!)}
+                  sx={{
+                    borderRadius: 2.5,
+                    p: 1.5,
+                    border: "1.5px solid",
+                    borderColor: "primary.light"
+                  }}
+                >
+                  <Edit fontSize="small" />
+                </IconButton>
+              </MuiTooltip>
+            )}
 
             {canDelete && (
               <MuiTooltip title="Eliminar" arrow>

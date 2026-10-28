@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { Box, CircularProgress } from "@mui/material";
 
@@ -15,6 +15,7 @@ export const ProtectedRoute = ({
     requireAuth = true,
 }: ProtectedRouteProps) => {
     const { user, userDoc, loading } = useAuth();
+    const location = useLocation();
 
     if (loading) {
         return (
@@ -38,13 +39,13 @@ export const ProtectedRoute = ({
         }
 
         // Permitir siempre el acceso a la selección de restaurante (ruta raíz)
-        if (window.location.pathname === "/" || window.location.pathname === "") {
+        if (location.pathname === "/" || location.pathname === "") {
              return children ? <>{children}</> : <Outlet />;
         }
 
         // Solo verificar permisos si esta ruta tiene allowedRoles definidos explícitamente
         if (allowedRoles) {
-            const userRole = userDoc?.role;
+            const userRole = userDoc?.role?.toLowerCase();
 
             // Verificar por rol
             if (userRole && allowedRoles.includes(userRole)) {
@@ -52,14 +53,14 @@ export const ProtectedRoute = ({
             }
 
             // Verificar por permiso granular (allowedPages en el userDoc)
-            const pathParts = window.location.pathname.split("/").filter(p => p);
+            const pathParts = location.pathname.split("/").filter(p => p);
             const currentPageId = pathParts.length >= 2 ? pathParts[1] : null;
             if (currentPageId && userDoc?.permissions?.allowedPages?.includes(currentPageId)) {
                 return children ? <>{children}</> : <Outlet />;
             }
 
             // Acceso denegado — redirigir a la primera página permitida
-            console.warn(`Acceso denegado a: ${window.location.pathname}. El rol '${userDoc?.role}' no tiene permiso.`);
+            console.warn(`Acceso denegado a: ${location.pathname}. El rol '${userDoc?.role}' no tiene permiso.`);
 
             const RESTAURANT_ID = "IOjtPfRh1PQ6lnxDeZdJ";
 
@@ -68,7 +69,7 @@ export const ProtectedRoute = ({
                 return <Navigate to={`/${RESTAURANT_ID}/${firstPage}`} replace />;
             }
 
-            const role = userDoc?.role;
+            const role = userRole;
             if (role === "cajero") return <Navigate to={`/${RESTAURANT_ID}/billing`} replace />;
             if (role === "mesero" || role === "mesera") return <Navigate to={`/${RESTAURANT_ID}/orders`} replace />;
             if (role === "cocinero") return <Navigate to={`/${RESTAURANT_ID}/orders`} replace />;

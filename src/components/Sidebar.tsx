@@ -129,12 +129,25 @@ export default function Sidebar({ mobileOpen, onClose, desktopOpen = true }: Sid
       return userDoc.permissions.allowedPages.includes(item.id);
     }
 
-    // Fallback para roles antiguos si no hay permisos granulares
+    // Fallback para roles si no hay permisos granulares configurados
     if (isCajero) {
       return (
         item.id === "billing" ||
         item.id === "orders" ||
         item.id === "cash-closing"
+      );
+    }
+
+    if (userRole === "cocinero") {
+      return item.id === "orders";
+    }
+
+    if (userRole === "mesero" || userRole === "mesera") {
+      return (
+        item.id === "orders" ||
+        item.id === "products" ||
+        item.id === "categories" ||
+        item.id === "additions"
       );
     }
 

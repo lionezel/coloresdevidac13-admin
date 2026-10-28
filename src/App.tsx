@@ -71,15 +71,14 @@ export default function App() {
               <Route path="settings" element={<SettingsPage />} />
 
               <Route path="/:restaurantId" element={<SidebarLayout />}>
-                {/* Rutas compartidas entre Admin y Cajero */}
-                <Route element={<ProtectedRoute allowedRoles={["admin", "cajero"]} />}>
+                {/* Rutas para Admin, Cajero, Cocinero y Mesero */}
+                <Route element={<ProtectedRoute allowedRoles={["admin", "cajero", "cocinero", "mesero", "mesera"]} />}>
                   <Route path="billing" element={<BillingPage />} />
                   <Route path="cash-closing" element={<CashClosingPage />} />
                   <Route path="orders" element={<OrdersPage />} />
                   <Route path="create-order" element={<CreateOrderPage />} />
                   <Route path="edit-order/:orderId" element={<CreateOrderPage />} />
                   {/* <Route path="credit-customers" element={<CreditCustomersPage />} /> */}
-
                 </Route>
 
                 {/* Rutas exclusivas para Admin */}
